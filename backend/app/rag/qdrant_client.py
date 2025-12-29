@@ -23,14 +23,12 @@ class QdrantManager:
         """Initialize Qdrant collections for knowledge base and summaries."""
         client = cls.get_client()
 
-        collections = await client.get_collections().catch()
+        collections = client.get_collections()
 
-        existing_collections = (
-            {c.name for c in collections.collections} if collections else set()
-        )
+        existing_collections = {c.name for c in collections.collections} if collections else set()
 
         if "knowledge_base" not in existing_collections:
-            await client.create_collection(
+            client.create_collection(
                 collection_name="knowledge_base",
                 vectors_config=VectorParams(
                     size=settings.EMBEDDING_DIMENSION,
@@ -39,7 +37,7 @@ class QdrantManager:
             )
 
         if "conversation_summaries" not in existing_collections:
-            await client.create_collection(
+            client.create_collection(
                 collection_name="conversation_summaries",
                 vectors_config=VectorParams(
                     size=settings.EMBEDDING_DIMENSION,
@@ -48,12 +46,10 @@ class QdrantManager:
             )
 
     @classmethod
-    async def upsert_documents(
-        cls, collection_name: str, points: list[models.PointStruct]
-    ) -> None:
+    async def upsert_documents(cls, collection_name: str, points: list[models.PointStruct]) -> None:
         """Upsert documents to Qdrant collection."""
         client = cls.get_client()
-        await client.upsert(collection_name=collection_name, points=points)
+        client.upsert(collection_name=collection_name, points=points)
 
     @classmethod
     async def search(
@@ -66,22 +62,18 @@ class QdrantManager:
         """Search documents in Qdrant collection."""
         client = cls.get_client()
         search_filter = Filter(
-            must=[
-                models.FieldCondition(
-                    key="language", match=models.MatchValue(value="en")
-                )
-            ]
+            must=[models.FieldCondition(key="language", match=models.MatchValue(value="en"))]
         )
 
-        results = await client.search(
+        results = client.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=search_filter,
             limit=limit,
             score_threshold=score_threshold,
         )
 
-        return results
+        return results.points
 
 
 qdrant_client = QdrantManager.get_client()
