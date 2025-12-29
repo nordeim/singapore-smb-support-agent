@@ -1,0 +1,266 @@
+# Phase 9: Data Preparation & Ingestion Plan
+Date: 2025-12-29
+Status: 📋 PLANNING PHASE
+---
+Executive Summary
+Phase 9 involves creating sample documents for Singapore SMB context, testing the ingestion pipeline, and verifying Qdrant collection population. This is critical for validating the RAG system with real data.
+---
+Phase 9 Task Breakdown
+Task 9.1: Create Directory Structure
+Status: 📋 PLANNED
+Directory to Create: backend/data/
+Subdirectories:
+backend/data/
+├── faq/
+│   ├── pricing.md
+│   ├── business_hours.md
+│   ├── services.md
+│   ├── returns_refunds.md
+│   └── shipping.md
+├── products/
+│   └── catalog.md
+└── policies/
+    ├── terms_of_service.md
+    ├── privacy_policy.md
+    ├── return_policy.md
+    └── shipping_policy.md
+---
+Task 9.2: Create Sample FAQs
+Status: 📋 PLANNED
+File: backend/data/faq/pricing.md
+Content: Pricing questions for Singapore SMB services
+- Service tiers and features
+- Discount policies
+- Payment methods
+- Contract terms
+File: backend/data/faq/business_hours.md
+Content: Operating hours questions
+- Business hours (9AM-6PM SGT)
+- Public holiday policy
+- Weekend availability
+- Emergency support
+File: backend/data/faq/services.md
+**Content: Service-related questions
+- Available services
+- Service features
+- Custom service requests
+- Service level agreements
+File: backend/data/faq/returns_refunds.md
+Content: Return and refund policies
+- Return window
+- Refund processing time
+- Restocking fees
+- Exceptions
+File: backend/data/faq/shipping.md
+Content: Shipping information
+- Delivery options
+- Shipping rates (Singapore domestic)
+- Delivery timeframes
+- Tracking information
+---
+Task 9.3: Create Sample Products Catalog
+Status: 📋 PLANNED
+File: backend/data/products/catalog.md
+Content: Product catalog with
+- Product names and descriptions
+- Pricing information
+- Availability status
+- Technical specifications
+- Product categories
+Product Categories:
+- Service packages (Basic, Professional, Enterprise)
+- Add-on features
+- Custom solutions
+---
+Task 9.4: Create Sample Policies
+Status: 📋 PLANNED
+File: backend/data/policies/terms_of_service.md
+Content: Terms of service
+- Service agreement terms
+- Liability clauses
+- Payment terms
+- Termination policies
+File: backend/data/policies/privacy_policy.md
+Content: Privacy policy (PDPA-compliant)
+- Data collection practices
+- Data usage and storage
+- User rights under PDPA
+- Data retention and deletion policies
+File: backend/data/policies/return_policy.md
+Content: Return and refund policy
+- Return conditions
+- Refund process
+- Timeframes
+File: backend/data/policies/shipping_policy.md
+Content: Shipping policy
+- Delivery options
+- Shipping rates
+- Delivery timeframes
+- Liability and insurance
+---
+Task 9.5: Create Ingestion Scripts
+Status: 📋 PLANNED
+File: backend/scripts/ingest_data.py
+Purpose: Automated ingestion script for sample data
+Features:
+- Auto-discover files in data/ directory
+- Batch processing with progress tracking
+- Error handling and logging
+- Collection name specification
+- Chunking strategy selection
+Usage:
+python -m backend.scripts.ingest_data \
+  --data-dir ./data \
+  --collection knowledge_base \
+  --chunking semantic
+  --batch-size 10
+---
+Task 9.6: Docker Configuration Updates
+Status: 📋 PLANNED
+File: infrastructure/docker-compose.yml
+Updates Needed:
+- Add backend data volume mount
+- Add healthcheck for all services
+- Optimize resource limits
+- Add networking configuration
+- Configure environment variables
+File: .env.docker
+Purpose: Docker-specific environment variables
+Variables:
+- Service health check endpoints
+- Database connection strings
+- Redis connection strings
+- Qdrant connection strings
+- API keys (from secrets)
+---
+Task 9.7: Docker Container Files
+Status: 📋 PLANNED
+File: backend/Dockerfile (multi-stage build)
+Stages:
+1. Builder Stage: Install dependencies, copy application
+2. Production Stage: Minimal runtime image, non-root user
+3. Healthcheck: Health endpoint validation
+File: frontend/Dockerfile (multi-stage build)
+Stages:
+1. Builder Stage: Install dependencies, build Next.js app
+2. Production Stage: Nginx web server, static files
+3. Healthcheck: Health endpoint validation
+File: .dockerignore
+Purpose: Optimize build context
+Patterns:
+- node_modules/
+- .next/
+- *.md
+- !.env.local
+- .git/
+---
+Implementation Order
+Phase 9.1: Data Creation (Tasks 9.1-9.4)
+1. Create directory structure
+2. Create FAQ documents (5 files)
+3. Create products catalog
+4. Create policy documents (4 files)
+Phase 9.2: Ingestion Scripts (Task 9.5)
+5. Create ingestion automation script
+6. Add progress tracking
+7. Add error handling
+Phase 9.3: Docker Configuration (Tasks 9.6-9.7)
+8. Update docker-compose.yml with volumes and healthchecks
+9. Create .env.docker file
+10. Create/update backend Dockerfile
+11. Create/update frontend Dockerfile
+12. Create .dockerignore file
+Phase 9.4: Testing & Verification (Task 9.8-9.9)
+13. Test ingestion with CLI tool
+14. Test Docker builds locally
+15. Verify Qdrant collection population
+16. Test RAG retrieval with ingested data
+---
+Document Content Guidelines
+FAQ Documents
+Structure:
+- Question in H1
+- Answer in paragraphs
+- Use bullet points for clarity
+- Include Singapore context
+- Reference relevant policies
+Products Catalog
+Structure:
+- Product name (H2)
+- Description (paragraph)
+- Pricing (table)
+- Features (bullet list)
+- Technical specs (list)
+Policy Documents
+Structure:
+- Overview (paragraph)
+- Detailed sections (H2 headings)
+- Timeframes (days/weeks)
+- Contact information
+- PDPA compliance notes (for privacy policy)
+---
+Docker Configuration Details
+docker-compose.yml Updates
+Services:
+- postgres: Add data volume, healthcheck
+- redis: Add healthcheck, resource limits
+- qdrant: Add persistent volume, healthcheck
+- backend: Add build context, data volume mount
+- frontend: Add build context, healthcheck
+Healthchecks:
+- postgres: pg_isready
+- redis: redis-cli ping
+- qdrant: /healthz
+- backend: /health
+- frontend: /api/health
+.env.docker Variables
+# Database
+DATABASE_URL=postgresql://agent_user:${DB_PASSWORD}@postgres:5432/support_agent
+POSTGRES_PASSWORD=your_secure_password_here
+# Redis
+REDIS_URL=redis://redis:6379/0
+REDIS_PASSWORD=your_redis_password_here
+# Qdrant
+QDRANT_URL=http://qdrant:6333
+# API Keys
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+SECRET_KEY=your_secret_key_here
+# Application
+ENVIRONMENT=production
+DEBUG=false
+ENABLE_SENTIMENT_ANALYSIS=true
+---
+File Structure After Phase 9
+backend/
+├── data/
+│   ├── faq/
+│   │   ├── pricing.md
+│   │   ├── business_hours.md
+│   │   ├── services.md
+│   │   ├── returns_refunds.md
+│   │   └── shipping.md
+│   ├── products/
+│   │   └── catalog.md
+│   └── policies/
+│       ├── terms_of_service.md
+│       ├── privacy_policy.md
+│       ├── return_policy.md
+│       └── shipping_policy.md
+├── scripts/
+│   ├── ingest_documents.py
+│   └── ingest_data.py (NEW)
+├── Dockerfile (NEW/UPDATED)
+└── .dockerignore (NEW)
+infrastructure/
+└── docker-compose.yml (UPDATED)
+.env.docker (NEW)
+---
+Next Steps
+1. Create sample documents with Singapore SMB context
+2. Test ingestion pipeline with sample data
+3. Verify Qdrant collection population
+4. Test RAG retrieval with ingested documents
+5. Validate RAGAS metrics (faithfulness, relevancy)
+---
+Plan Complete ✅
+</arg_value><arg_key>filePath</arg_key><arg_value>/home/project/ai-agent/docs/PHASE9_DATA_PREPARATION_PLAN.md</arg_value></tool_call>
