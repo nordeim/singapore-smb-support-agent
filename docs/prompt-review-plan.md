@@ -1,0 +1,2 @@
+Please see attached for your system prompt and operating framework. next, please meticulously review and validate the proposed implementation plan @plan.md. do your independent research to confirm your understanding and assumptions before finalizing your own implementation plan. remember to create detailed todo task list before starting aby task, and also to save/stage any plan before executing it. always review and validate the plan before proceeding to execute it.
+ 
