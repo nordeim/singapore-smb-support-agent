@@ -63,3 +63,18 @@ class ErrorResponse(BaseModel):
     detail: str
     error_code: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SupportResponse(BaseModel):
+    """Support agent response for internal use."""
+
+    message: str = Field(..., description="Response message")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
+    sources: List[SourceCitation] = Field(
+        default_factory=list, description="Source citations"
+    )
+    escalated: bool = Field(default=False, description="Whether escalated to human")
+    requires_followup: bool = Field(
+        default=False, description="Whether followup needed"
+    )
+    ticket_id: Optional[str] = Field(None, description="Support ticket ID if created")

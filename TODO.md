@@ -6,22 +6,22 @@
 
 ## Phase 1: Foundation Setup (Week 1)
 
-- [ ] **1.1** Initialize git repository with .gitignore, README, LICENSE
-- [ ] **1.2** Create backend/ with pyproject.toml (Python 3.11+, Pydantic AI 1.39+, LangChain 0.3.x)
-- [ ] **1.3** Initialize frontend/ with package.json (React 18+, TypeScript 5.6+, Tailwind 3.4+)
-- [ ] **1.4** Initialize Shadcn/UI components (button, input, avatar, scroll-area, dialog)
-- [ ] **1.5** Create docker-compose.yml with PostgreSQL 16, Redis 7, Qdrant latest, backend, frontend services
-- [ ] **1.6** Create .env.example with required variables (OPENROUTER_API_KEY, QDRANT_URL, REDIS_URL, DATABASE_URL, SECRET_KEY)
+- [x] **1.1** Initialize git repository with .gitignore, README, LICENSE
+- [x] **1.2** Create backend/ with pyproject.toml (Python 3.11+, Pydantic AI 1.39+, LangChain 0.3.x)
+- [x] **1.3** Initialize frontend/ with package.json (React 18+, TypeScript 5.6+, Tailwind 3.4+)
+- [x] **1.4** Initialize Shadcn/UI components (button, input, avatar, scroll-area, dialog)
+- [x] **1.5** Create docker-compose.yml with PostgreSQL 16, Redis 7, Qdrant latest, backend, frontend services
+- [x] **1.6** Create .env.example with required variables (OPENROUTER_API_KEY, QDRANT_URL, REDIS_URL, DATABASE_URL, SECRET_KEY)
 
 ---
 
 ## Phase 2: Database Infrastructure (Week 1-2)
 
-- [ ] **2.1** Design PostgreSQL schema (users, conversations, messages, conversation_summaries, support_tickets)
-- [ ] **2.2** Create SQLAlchemy async models with relationships and PDPA compliance fields
-- [ ] **2.3** Set up Alembic for database migrations
-- [ ] **2.4** Configure Redis connection with 30min TTL for session storage
-- [ ] **2.5** Initialize Qdrant client and create collections:
+- [x] **2.1** Design PostgreSQL schema (users, conversations, messages, conversation_summaries, support_tickets)
+- [x] **2.2** Create SQLAlchemy async models with relationships and PDPA compliance fields
+- [x] **2.3** Set up Alembic for database migrations
+- [x] **2.4** Configure Redis connection with 30min TTL for session storage
+- [x] **2.5** Initialize Qdrant client and create collections:
   - `knowledge_base`: 1536-dim (OpenAI embeddings), cosine similarity
   - `conversation_summaries`: Same dimensions for semantic search
 
@@ -42,16 +42,16 @@
 
 ## Phase 4: RAG Pipeline (Week 3)
 
-- [ ] **4.1** Create backend/app/rag/pipeline.py orchestrating query_transform → hybrid_retriever → reranker → context_compress
-- [ ] **4.2** Implement QueryTransformer class with LangChain LLM for:
+- [x] **4.1** Create backend/app/rag/pipeline.py orchestrating query_transform → hybrid_retriever → reranker → context_compress
+- [x] **4.2** Implement QueryTransformer class with LangChain LLM for:
   - Query rewriting
   - Intent classification
   - Language detection (English-only for MVP)
-- [ ] **4.3** Implement HybridRetriever using Qdrant native FastEmbedSparse (BM25) + Dense vector search with RRF fusion
-- [ ] **4.4** Implement BGEReranker using HuggingFaceCrossEncoder
+- [x] **4.3** Implement HybridRetriever using Qdrant native FastEmbedSparse (BM25) + Dense vector search with RRF fusion
+- [x] **4.4** Implement BGEReranker using HuggingFaceCrossEncoder
   - Model: `BAAI/bge-reranker-v2-m3` (local model)
   - Top-N selection: 5 documents
-- [ ] **4.5** Implement ContextCompressor with:
+- [x] **4.5** Implement ContextCompressor with:
   - Extractive compression
   - Token budget management (~4000 tokens max)
   - Lost-in-middle prevention
@@ -60,17 +60,17 @@
 
 ## Phase 5: Memory System (Week 3-4)
 
-- [ ] **5.1** Create backend/app/memory/manager.py orchestrating short_term (Redis) + long_term (PostgreSQL) + summarizer
-- [ ] **5.2** Implement ShortTermMemory class with:
+- [x] **5.1** Create backend/app/memory/manager.py orchestrating short_term (Redis) + long_term (PostgreSQL) + summarizer
+- [x] **5.2** Implement ShortTermMemory class with:
   - Redis async client
   - Session prefix: `session:{session_id}`
   - 30min TTL
   - Message serialization (JSON)
-- [ ] **5.3** Implement LongTermMemory class with:
+- [x] **5.3** Implement LongTermMemory class with:
   - SQLAlchemy async session
   - Conversation summaries storage
   - PDPA-compliant data handling (auto-expiry flags)
-- [ ] **5.4** Implement ConversationSummarizer using:
+- [x] **5.4** Implement ConversationSummarizer using:
   - LLM via OpenRouter (GPT-4o-mini for cost-effectiveness)
   - Rolling summary trigger at 20 messages
   - Summary embedding and indexing in Qdrant
@@ -79,20 +79,20 @@
 
 ## Phase 6: Agent Implementation (Week 4-5)
 
-- [ ] **6.1** Create backend/app/agent/support_agent.py using Pydantic AI:
+- [x] **6.1** Create backend/app/agent/support_agent.py using Pydantic AI:
   - Model: `'openai/gpt-4o'` (via OpenRouter)
   - Output schema: `SupportResponse` (message, confidence, sources, requires_followup, escalated)
   - Dependencies dataclass: `SupportDependencies` (rag_retriever, customer_service, memory_manager, business_context)
-- [ ] **6.2** Design system prompt for Singapore SMB customer support:
+- [x] **6.2** Design system prompt for Singapore SMB customer support:
   - Professional, friendly, culturally aware
   - PDPA compliance guidelines
   - English-primary language
   - Escalation thresholds
-- [ ] **6.3** Create `@support_agent.tool retrieve_knowledge(query: str) → str` executing full RAG pipeline
-- [ ] **6.4** Create `@support_agent.tool get_customer_info(customer_id: str) → str` for database lookup
-- [ ] **6.5** Create `@support_agent.tool check_business_hours() → str` with Singapore timezone (Asia/Singapore) logic
-- [ ] **6.6** Create `@support_agent.tool escalate_to_human(reason: str, conversation_id: str) → str` for human handoff with ticket creation
-- [ ] **6.7** Implement response validators:
+- [x] **6.3** Create `@support_agent.tool retrieve_knowledge(query: str) → str` executing full RAG pipeline
+- [x] **6.4** Create `@support_agent.tool get_customer_info(customer_id: str) → str` for database lookup
+- [x] **6.5** Create `@support_agent.tool check_business_hours() → str` with Singapore timezone (Asia/Singapore) logic
+- [x] **6.6** Create `@support_agent.tool escalate_to_human(reason: str, conversation_id: str) → str` for human handoff with ticket creation
+- [x] **6.7** Implement response validators:
   - Confidence threshold (< 0.7 triggers escalation)
   - Sentiment analysis (negative → escalate)
   - PDPA compliance check
@@ -101,27 +101,27 @@
 
 ## Phase 7: API Layer (Week 5-6)
 
-- [ ] **7.1** Create backend/app/api/routes/chat.py with:
+- [x] **7.1** Create backend/app/api/routes/chat.py with:
   - POST `/api/chat` endpoint
   - WebSocket support for real-time streaming
   - Request/response schemas (`ChatRequest`, `ChatResponse`)
-- [ ] **7.2** Create backend/app/api/routes/auth.py with:
+- [x] **7.2** Create backend/app/api/routes/auth.py with:
   - POST `/api/auth/register` endpoint
   - POST `/api/auth/login` endpoint
   - JWT token generation using `python-jose`
-- [ ] **7.3** Create backend/app/dependencies.py with:
+- [x] **7.3** Create backend/app/dependencies.py with:
   - `get_current_user(token: str)` function
   - `get_memory_manager()` function
   - `get_db()` function
   - `get_business_context()` function
-- [ ] **7.4** Create backend/app/config.py using pydantic-settings for:
+- [x] **7.4** Create backend/app/config.py using pydantic-settings for:
   - Environment variable management
   - OpenRouter base_url configuration
   - Secret key management
-- [ ] **7.5** Create backend/app/models/schemas.py (API Pydantic models)
-- [ ] **7.6** Create backend/app/models/domain.py (domain models)
-- [ ] **7.7** Create backend/app/models/database.py (SQLAlchemy models)
-- [ ] **7.8** Create backend/app/main.py FastAPI app with:
+- [x] **7.5** Create backend/app/models/schemas.py (API Pydantic models)
+- [x] **7.6** Create backend/app/models/domain.py (domain models)
+- [x] **7.7** Create backend/app/models/database.py (SQLAlchemy models)
+- [x] **7.8** Create backend/app/main.py FastAPI app with:
   - CORS configuration
   - WebSocket integration
   - Middleware (logging, error handling)
