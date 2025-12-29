@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS builder
+FROM python:3.13-trixie AS builder
 
 WORKDIR /app
 
@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
+COPY uv* /usr/bin
+RUN uv init --bare
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .
 
@@ -13,7 +15,7 @@ COPY . .
 
 RUN pip install --no-cache-dir pytest pytest-asyncio
 
-FROM python:3.11-slim
+FROM python:3.13-trixie
 
 WORKDIR /app
 
