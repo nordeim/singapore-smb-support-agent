@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Clock, Globe } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useChatStore } from '@/stores/chatStore';
 import type { BusinessHours } from '@/types';

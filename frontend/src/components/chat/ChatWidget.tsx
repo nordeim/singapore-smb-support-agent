@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChatHeader } from './ChatHeader';
@@ -16,6 +18,14 @@ export function ChatWidget() {
       await createSession();
     } catch (error) {
       console.error('Failed to create session:', error);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+    } catch (error) {
+      console.error('Failed to disconnect:', error);
     }
   };
 
@@ -71,7 +81,7 @@ export function ChatWidget() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={disconnect}
+                onClick={handleDisconnect}
                 title="Disconnect"
               >
                 <LogOut className="w-4 h-4" />

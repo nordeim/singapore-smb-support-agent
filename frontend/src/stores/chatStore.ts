@@ -35,7 +35,7 @@ interface ChatStore {
   // Async actions
   sendMessage: (content: string) => Promise<void>;
   createSession: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -163,7 +163,7 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
-      disconnect: () => {
+      disconnect: async () => {
         const { sessionId } = get();
 
         if (sessionId) {
