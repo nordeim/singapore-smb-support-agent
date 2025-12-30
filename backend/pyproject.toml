@@ -31,6 +31,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.21",
+    "sentence-transformers==5.2.0",
     "pytz>=2025.2",
     "qdrant-client>=1.16.2",
     "redis[hiredis]>=7.1.0",
