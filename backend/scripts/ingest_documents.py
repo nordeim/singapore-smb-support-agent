@@ -99,6 +99,11 @@ Examples:
         action="store_true",
         help="Enable verbose output",
     )
+    parser.add_argument(
+        "--use-mock-embeddings",
+        action="store_true",
+        help="Use mock embeddings instead of real API (for testing)",
+    )
 
     return parser.parse_args()
 
@@ -223,11 +228,15 @@ async def main():
     print(f"Collection: {args.collection}")
     print(f"Chunk Strategy: {args.chunk_strategy}")
     print(f"Batch Size: {args.batch_size}")
+    if args.use_mock_embeddings:
+        print("Embeddings: MOCK (testing mode)")
+    else:
+        print("Embeddings: API (requires valid key)")
     print("=" * 80)
 
     if args.init_collections:
         print("\nInitializing Qdrant collections...")
-        await QdrantManager.initialize_collections()
+        QdrantManager.initialize_collections()
         print("Collections initialized.")
 
     additional_metadata = parse_metadata(args.metadata)
@@ -235,6 +244,7 @@ async def main():
     pipeline = IngestionPipeline(
         chunk_strategy=args.chunk_strategy,
         collection_name=args.collection,
+        use_mock_embeddings=args.use_mock_embeddings,
     )
 
     result: IngestionResult = None
@@ -283,7 +293,7 @@ async def main():
                 pipeline=pipeline,
                 recursive=args.recursive,
                 batch_size=args.batch_size,
-                file_extensions=file_extensions or [],
+                file_extensions=file_extensions,
                 verbose=args.verbose,
             )
 

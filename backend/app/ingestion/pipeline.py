@@ -13,6 +13,15 @@ from app.config import settings
 from qdrant_client.http.models import PointStruct
 
 
+def get_embedding_generator(use_mock: bool = False):
+    """Factory function to get embedding generator."""
+    if use_mock:
+        from app.ingestion.embedders.mock_embedding import MockEmbeddingGenerator
+
+        return MockEmbeddingGenerator()
+    return EmbeddingGenerator()
+
+
 class IngestionResult:
     """Result of ingestion operation."""
 
@@ -48,6 +57,7 @@ class IngestionPipeline:
         self,
         chunk_strategy: Literal["semantic", "recursive"] = "semantic",
         collection_name: str = "knowledge_base",
+        use_mock_embeddings: bool = False,
     ):
         """
         Initialize ingestion pipeline.
@@ -55,9 +65,10 @@ class IngestionPipeline:
         Args:
             chunk_strategy: Chunking strategy (semantic or recursive)
             collection_name: Qdrant collection name
+            use_mock_embeddings: Use mock embeddings for testing
         """
         self.parser = DocumentParser()
-        self.embedder = EmbeddingGenerator()
+        self.embedder = get_embedding_generator(use_mock_embeddings)
         self.qdrant = QdrantManager()
         self.collection_name = collection_name
 

@@ -122,7 +122,7 @@ class LongTermMemory:
             .limit(limit)
             .offset(offset)
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def save_conversation_summary(
         self,
@@ -145,7 +145,9 @@ class LongTermMemory:
         )
         self.db.add(conv_summary)
 
-        await self.db.execute(select(Conversation).where(Conversation.id == conversation_id))
+        result = await self.db.execute(
+            select(Conversation).where(Conversation.id == conversation_id)
+        )
         conversation = result.scalar_one_or_none()
         if conversation:
             conversation.summary_count += 1
@@ -165,7 +167,7 @@ class LongTermMemory:
             .where(ConversationSummary.conversation_id == conversation_id)
             .order_by(ConversationSummary.created_at.desc())
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def create_support_ticket(
         self,
@@ -218,4 +220,5 @@ class LongTermMemory:
             .where(Conversation.user_id == user_id)
             .where(Conversation.is_active == True)
         )
-        return result.scalar()
+        count = result.scalar()
+        return count if count is not None else 0

@@ -5,7 +5,11 @@ from sqlalchemy import Boolean, DateTime, String, Text, Float, Integer, ForeignK
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs
 
-Base = DeclarativeBase.metadata
+
+class Base(AsyncAttrs, DeclarativeBase):
+    """Base class for database models."""
+
+    pass
 
 
 class User(Base):
@@ -14,29 +18,21 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(
-        String(255), unique=True, index=True, nullable=False
-    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
     consent_given_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
     )
-    consent_version: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="v1.0"
-    )
+    consent_version: Mapped[str] = mapped_column(String(50), nullable=False, default="v1.0")
 
-    data_retention_days: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=30
-    )
+    data_retention_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     auto_expiry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
@@ -52,13 +48,9 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False, index=True
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
 
-    session_id: Mapped[str] = mapped_column(
-        String(255), unique=True, index=True, nullable=False
-    )
+    session_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
 
     language: Mapped[str] = mapped_column(String(10), nullable=False, default="en")
 
@@ -67,9 +59,7 @@ class Conversation(Base):
 
     summary_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
@@ -102,9 +92,7 @@ class Message(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     sources: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 
@@ -126,11 +114,9 @@ class ConversationSummary(Base):
 
     embedding_vector: Mapped[bytes | None] = mapped_column(Text, nullable=True)
 
-    metadata: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="summaries")
 
@@ -152,9 +138,7 @@ class SupportTicket(Base):
     assigned_to: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

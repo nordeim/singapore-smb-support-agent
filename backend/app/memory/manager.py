@@ -1,5 +1,7 @@
 """Memory manager orchestrating short-term, long-term, and summarization."""
 
+from typing import Optional
+
 from app.memory.short_term import ShortTermMemory
 from app.memory.long_term import LongTermMemory
 from app.memory.summarizer import ConversationSummarizer
@@ -62,7 +64,7 @@ class MemoryManager:
             return "Conversation not found"
 
         await self.long_term.save_conversation_summary(
-            conversation["id"],
+            conversation.id,
             summary,
             message_range_start=0,
             message_range_end=len(messages),
@@ -82,20 +84,21 @@ class MemoryManager:
             conversation = await self.long_term.create_conversation(user_id, session_id)
 
         return {
-            "id": conversation["id"],
-            "user_id": conversation["user_id"],
-            "session_id": conversation["session_id"],
-            "language": conversation["language"],
-            "summary_count": conversation["summary_count"],
+            "id": conversation.id,
+            "user_id": conversation.user_id,
+            "session_id": conversation.session_id,
+            "language": conversation.language,
+            "summary_count": conversation.summary_count,
         }
 
     async def save_message_with_metadata(
         self,
+        session_id: str,
         conversation_id: int,
         role: str,
         content: str,
-        confidence: float = None,
-        sources: str = None,
+        confidence: Optional[float] = None,
+        sources: Optional[str] = None,
     ) -> dict:
         """Save message to both short-term and long-term memory."""
         from datetime import datetime
@@ -108,7 +111,7 @@ class MemoryManager:
             "created_at": datetime.utcnow(),
         }
 
-        await self.add_message_to_session(conversation_id, message_data)
+        await self.add_message_to_session(session_id, message_data)
 
         await self.long_term.add_message(
             conversation_id=conversation_id,
@@ -123,7 +126,7 @@ class MemoryManager:
     async def get_working_memory(
         self,
         session_id: str,
-        max_tokens: int = settings.CONTEXT_TOKEN_BUDGET,
+        max_tokens: int = 4000,
     ) -> dict:
         """Assemble working memory for LLM context."""
         session = await self.get_session(session_id)
@@ -140,7 +143,7 @@ class MemoryManager:
 
         summaries = []
         if conversation:
-            summaries = await self.long_term.get_conversation_summaries(conversation["id"])
+            summaries = await self.long_term.get_conversation_summaries(conversation.id)
 
         context = {
             "system": "You are a Singapore SMB customer support specialist.",
@@ -156,14 +159,9 @@ class MemoryManager:
         if not summaries:
             return ""
 
-        return summaries[0]["summary"]
-
-
-memory_manager = None
+        return summaries[0].summary
 
 
 def get_memory_manager(db_session) -> MemoryManager:
     """Factory function to create memory manager instance."""
-    if memory_manager is None:
-        memory_manager = MemoryManager(db_session)
-    return memory_manager
+    return MemoryManager(db_session)
