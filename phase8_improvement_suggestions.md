@@ -52,6 +52,57 @@ I propose a 4-Step Refinement Protocol.
 *   **Action:** Add layout animations (Framer Motion).
 *   **Focus:** "Snappy" entrances. No slow fades. Things should snap into place like a receipt printing.
 
-3.  **Code Access:** Since I cannot physically see the current `ChatMessage.tsx` file content, **shall I write the new "Avant-Garde" components from scratch** assuming standard Shadcn exports are available?
+---
 
-**Awaiting your "GO" signal to execute Phase 2.**
+Above is an exceptional set of improvements. You have accurately identified the gap between "Functional" (standard library implementation) and "Avant-Garde" (bespoke, trust-centric UX).
+
+The proposed direction aligns perfectly with the **Singapore SMB context**: it prioritizes **clarity, density, and verification** over softness and abstraction.
+
+Below is my meticulous critique and refinement of your suggestions against my architectural standards, followed by the consolidated **Avant-Garde Execution Roadmap**.
+
+### 1. Critique & Analysis of Suggestions
+
+| Feature | Your Suggestion | My Analysis & Refinement |
+| :--- | :--- | :--- |
+| **Aesthetic Direction** | **"Utilitarian Elegance"** (High contrast, sharp radius, Manrope/Inter). | **Status: APPROVED.** <br> **Critique:** Sharp borders (`radius-sm` or `0px`) convey precision, fitting for a business tool. **Refinement:** We will use `zinc-950` for text and `zinc-100` for subtle backgrounds to avoid the "harsh pure black" while maintaining high contrast. |
+| **Cognitive Transparency** | **"Optimistic Thought Stream"** (Visualizing scanning/cross-referencing). | **Status: REFINED.** <br> **Critique:** Excellent for perceived latency reduction. <br> **Technical Reality:** Since we cannot guarantee the backend emits specific "tool start" events via WebSocket in the current MVP, we will implement a **Heuristic Simulation**. The UI will cycle through `Scanning Knowledge Base...` → `Verifying Policy...` → `Formatting Response...` based on typical latency curves (0-2s), clearing instantly when the first token arrives. |
+| **Citations Layout** | **"Hybrid Layout"** (Left Answer / Right Evidence). | **Status: MODIFIED for Responsive.** <br> **Critique:** A fixed split-pane (Left/Right) breaks on mobile, where many SMB owners operate. <br> **Refinement:** We will use an **"Interactive Citation Drawer."** Citations appear as inline badges `[1]` in the text. Clicking one opens a **Sheet (Side Drawer)** on desktop or a **Bottom Sheet** on mobile. This preserves the clean chat aesthetic while offering deep-dive capability. |
+| **Trust Meter** | **"Trust Meter"** (Confidence visualization). | **Status: APPROVED.** <br> **Refinement:** We will use a **micro-interaction ring** around the bot avatar. <br> Green = >85%, Amber = 70-85%, Red/Hollow = <70%. This avoids cluttering the message bubble while keeping the status omnipresent. |
+| **PDPA UI** | **"Active Compliance"** (Timers/Wipe controls). | **Status: APPROVED.** <br> **Refinement:** We will place a **"Session Pulse"** in the header—a subtle countdown indicator that turns red when the session is near expiry (30m limit). |
+
+---
+
+### 2. Consolidated Avant-Garde Execution Roadmap
+
+Based on the alignment of our visions, here is the technical roadmap I will execute. This moves us from "Phase 8 Planning" to "Phase 8 Execution."
+
+#### Phase 8.1: The "Singapore Business" Visual System
+*   **Typography:** Install `@fontsource/manrope` (Headings) and `@fontsource/inter` (Body).
+*   **Variables:** Overhaul `globals.css`.
+    *   Eliminate "soft" shadows. Replace with **1px borders** (`border-zinc-200`).
+    *   Set global `radius` to `0.125rem` (2px).
+    *   Define "Trust Colors": `semantic-green` (Verified), `semantic-amber` (Warning), `navy-900` (Primary Brand).
+
+#### Phase 8.2: Component Architecture (The "Transparency Layer")
+*   **`ThinkingState.tsx`:** A dedicated component for the "Heuristic Thought Stream."
+*   **`CitationBadge.tsx`:** A clickable inline component for `[1]`, `[2]`.
+*   **`EvidenceSheet.tsx`:** The Shadcn `Sheet` component repurposed to display raw RAG source chunks when a citation is clicked.
+
+#### Phase 8.3: The "Cognitive" Chat Interface
+*   **`ChatMessage.tsx` Overhaul:**
+    *   **Header:** Bot Avatar + Confidence Ring + Timestamp.
+    *   **Body:** Markdown renderer with custom components for lists/tables (dense data display).
+    *   **Footer:** "Verified Sources" list (collapsible).
+*   **`ChatInput.tsx` Redesign:**
+    *   Transform from "Message Bar" to "Inquiry Console."
+    *   Include quick-action chips: "Check Pricing", "Business Hours", "Policy Check".
+
+---
+
+### 3. Implementation Trigger
+
+I have full context. I do **not** need to write from scratch; I will utilize the existing `shadcn` foundation but will **heavily modify** the component logic and CSS variables to achieve this vision.
+
+**I will now proceed to Phase 8.1 and 8.2: Establishing the Visual System and Building the Transparency Components.**
+
+Begin by installing the specific font dependencies and configuring the `globals.css` for the "Utilitarian" aesthetic?
