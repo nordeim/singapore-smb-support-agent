@@ -21,15 +21,6 @@ interface ChatStore {
   messages: Message[];
   isTyping: boolean;
 
-  // Trust & Thinking
-  isThinking: boolean;
-
-  // Evidence Sheet
-  expandedCitation: number | null;
-
-  // Evidence Sheet
-  expandedCitation: number | null;
-
   // Actions
   setSessionId: (id: string) => void;
   addMessage: (message: Message) => void;
@@ -40,12 +31,6 @@ interface ChatStore {
     status: 'connecting' | 'connected' | 'disconnected' | 'error',
   ) => void;
   setTyping: (typing: boolean) => void;
-
-  // Trust & Thinking actions
-  setThinking: (thinking: boolean) => void;
-
-  // Evidence actions
-  setExpandedCitation: (citation: number | null) => void;
 
   // Async actions
   sendMessage: (content: string) => Promise<void>;
@@ -62,7 +47,6 @@ export const useChatStore = create<ChatStore>()(
       connectionStatus: 'disconnected',
       messages: [],
       isTyping: false,
-      isThinking: false,
 
       // Session actions
       setSessionId: (id) => set({ sessionId: id }),
@@ -85,20 +69,13 @@ export const useChatStore = create<ChatStore>()(
       // Connection actions
       setConnected: (connected) => set({ isConnected: connected }),
 
-      setConnectionStatus: (
-        status: 'connecting' | 'connected' | 'disconnected' | 'error',
-      ) => set({
-        connectionStatus: status,
-        isConnected: status === 'connected',
-      }),
+      setConnectionStatus: (status) =>
+        set({
+          connectionStatus: status,
+          isConnected: status === 'connected',
+        }),
 
       setTyping: (typing) => set({ isTyping: typing }),
-
-      // Trust & Thinking actions
-      setThinking: (thinking: boolean) => set({ isThinking: thinking }),
-
-      // Evidence actions
-      setExpandedCitation: (citation: number | null) => set({ expandedCitation: citation }),
 
       // Async actions
       sendMessage: async (content) => {
@@ -205,7 +182,6 @@ export const useChatStore = create<ChatStore>()(
           connectionStatus: 'disconnected',
           messages: [],
           isTyping: false,
-          isThinking: false,
         });
       },
     }),
@@ -219,4 +195,3 @@ export const selectIsTyping = (state: ChatStore) => state.isTyping;
 export const selectIsConnected = (state: ChatStore) => state.isConnected;
 export const selectConnectionStatus = (state: ChatStore) => state.connectionStatus;
 export const selectSessionId = (state: ChatStore) => state.sessionId;
-export const selectIsThinking = (state: ChatStore) => state.isThinking;

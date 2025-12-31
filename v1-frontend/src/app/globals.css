@@ -4,25 +4,12 @@
 
 @layer base {
   :root {
-    /* Typography - Singapore Professional */
-    --font-manrope: 'Manrope', sans-serif;
-    --font-inter: 'Inter', sans-serif;
-
-    /* Trust Colors - Singapore Professional */
-    --semantic-green: 142 211 142;    /* #8ED38E - Verified */
-    --semantic-amber: 251 191 36;     /* #FBBF24 - Warning */
-    --semantic-red: 220 38 38;         /* #DC2626 - Error */
-
-    /* Enhanced Radius - Sharp, Professional */
-    --radius: 0.125rem;  /* 2px instead of 8px */
-
-    /* Color System - Base */
     --background: 0 0% 100%;
-    --foreground: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
     --primary: 0 0% 9%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
@@ -36,6 +23,7 @@
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
+    --radius: 0.5rem;
   }
 
   .dark {

@@ -69,16 +69,6 @@ export interface Session {
   email?: string;
   created_at: string;
   expires_in?: string;
-  expires_at?: Date;
-}
-
-export interface ChatHeaderProps {
-  isOnline?: boolean;
-  businessHours?: BusinessHours;
-  agentName?: string;
-  sessionExpiresAt?: Date;
-  onExtend?: () => void;
-  onWipe?: () => void;
 }
 
 // WebSocket message types

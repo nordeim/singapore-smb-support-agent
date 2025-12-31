@@ -44,11 +44,6 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        trust: {
-          green: "hsl(var(--semantic-green))",
-          amber: "hsl(var(--semantic-amber))",
-          red: "hsl(var(--semantic-red))",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",

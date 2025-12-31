@@ -1,18 +1,12 @@
-'use client';
-
 import * as React from 'react';
 import { Bot, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
-import { ConfidenceRing } from '@/components/ui/confidence-ring';
-import { ThinkingState } from './ThinkingState';
 import type { ChatMessageProps } from '@/types';
-import { useChatStore } from '@/stores/chatStore';
 
 export function ChatMessage({ message, showSources = false }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
-  const { isThinking } = useChatStore();
 
   if (isSystem) {
     return (
@@ -27,18 +21,12 @@ export function ChatMessage({ message, showSources = false }: ChatMessageProps) 
   return (
     <div className={`flex gap-3 mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser && (
-        <div className="flex-shrink-0">
-          <ConfidenceRing confidence={message.confidence || 0}>
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-              <Bot className="w-5 h-5 text-primary-foreground" />
-            </div>
-          </ConfidenceRing>
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <Bot className="w-5 h-5 text-primary-foreground" />
         </div>
       )}
 
       <div className={`max-w-[80%] space-y-2 ${isUser ? 'text-right' : 'text-left'}`}>
-        {isThinking && <ThinkingState isThinking={true} />}
-
         <div
           className={`rounded-lg px-4 py-3 ${
             isUser
@@ -74,6 +62,12 @@ export function ChatMessage({ message, showSources = false }: ChatMessageProps) 
         )}
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {message.confidence !== undefined && !isUser && (
+            <span>
+              Confidence: {(message.confidence * 100).toFixed(0)}%
+            </span>
+          )}
+          <Separator orientation="vertical" className="h-3" />
           <span>{format(new Date(message.timestamp), 'h:mm a')}</span>
         </div>
       </div>

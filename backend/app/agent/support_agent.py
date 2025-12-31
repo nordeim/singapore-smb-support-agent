@@ -16,9 +16,7 @@ class AgentContext(BaseModel):
     session_id: str = Field(..., description="Session identifier")
     user_id: Optional[int] = Field(None, description="User ID")
     conversation_summary: str = Field(default="", description="Conversation summary")
-    recent_messages: list[dict] = Field(
-        default_factory=list, description="Recent messages"
-    )
+    recent_messages: list[dict] = Field(default_factory=list, description="Recent messages")
     business_hours_status: str = Field(..., description="Current business hours status")
 
 
@@ -29,9 +27,7 @@ class AgentResponse(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     sources: list[dict] = Field(default_factory=list, description="Source citations")
     escalated: bool = Field(default=False, description="Whether escalated to human")
-    requires_followup: bool = Field(
-        default=False, description="Whether followup needed"
-    )
+    requires_followup: bool = Field(default=False, description="Whether followup needed")
     ticket_id: Optional[str] = Field(None, description="Support ticket ID if created")
 
 
@@ -85,9 +81,7 @@ class SupportAgent:
         from app.dependencies import BusinessContext
 
         business_context = BusinessContext()
-        business_hours_status = (
-            "open" if business_context.is_business_hours() else "closed"
-        )
+        business_hours_status = "open" if business_context.is_business_hours() else "closed"
 
         return AgentContext(
             session_id=session_id,
@@ -102,9 +96,7 @@ class SupportAgent:
         from app.dependencies import BusinessContext
 
         business_context = BusinessContext()
-        business_hours_status = (
-            "open" if business_context.is_business_hours() else "closed"
-        )
+        business_hours_status = "open" if business_context.is_business_hours() else "closed"
 
         return AgentContext(
             session_id=session_id,
@@ -179,17 +171,17 @@ class SupportAgent:
 
                 if conversation_id:
                     await self.memory_manager.save_message_with_metadata(
+                        session_id=session_id,
                         conversation_id=conversation_id,
                         role="user",
                         content=message,
                     )
                     await self.memory_manager.save_message_with_metadata(
+                        session_id=session_id,
                         conversation_id=conversation_id,
                         role="assistant",
                         content=response_text,
-                        confidence=knowledge_result.confidence
-                        if knowledge_result
-                        else 0.7,
+                        confidence=knowledge_result.confidence if knowledge_result else 0.7,
                     )
 
             confidence = knowledge_result.confidence if knowledge_result else 0.7

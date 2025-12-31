@@ -1,12 +1,9 @@
-'use client';
-
 import * as React from 'react';
-import { Clock, Globe, Trash2 } from 'lucide-react';
+import { Clock, Globe } from 'lucide-react';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useChatStore } from '@/stores/chatStore';
-import { SessionPulse } from './SessionPulse';
-import type { BusinessHours, ChatHeaderProps } from '@/types';
+import type { BusinessHours } from '@/types';
 
 export function ChatHeader() {
   const { connectionStatus } = useChatStore();
@@ -32,6 +29,7 @@ export function ChatHeader() {
   const hours = getBusinessHours();
   const isConnected = connectionStatus === 'connected';
   const isOnline = hours.is_open && isConnected;
+
   const statusColor = isOnline ? 'bg-green-500' : 'bg-amber-500';
 
   return (
@@ -39,15 +37,10 @@ export function ChatHeader() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <SessionPulse expiresAt={new Date(Date.now() + 30 * 60000)} />
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${statusColor}`}></div>
-                <span className="font-semibold">
-                  Singapore SMB Support Agent
-                </span>
-              </div>
-            </div>
+            <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+            <span className="font-semibold">
+              Singapore SMB Support Agent
+            </span>
           </div>
 
           <Badge
