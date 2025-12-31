@@ -1,5 +1,5 @@
 /**
- * Zustand store for chat state management
+ * Zustand store for chat state management with WebSocket integration
  */
 
 import { create } from 'zustand';
@@ -9,7 +9,9 @@ import type {
   MessageRole,
   ChatRequest,
   ChatResponse,
+  WSMessage,
 } from '@/types';
+import { WebSocketClient } from '@/lib/websocket';
 
 interface ChatStore {
   // Session state
@@ -27,8 +29,8 @@ interface ChatStore {
   // Evidence Sheet
   expandedCitation: number | null;
 
-  // Evidence Sheet
-  expandedCitation: number | null;
+  // WebSocket client
+  socketClient: WebSocketClient | null;
 
   // Actions
   setSessionId: (id: string) => void;
@@ -47,6 +49,11 @@ interface ChatStore {
   // Evidence actions
   setExpandedCitation: (citation: number | null) => void;
 
+  // WebSocket actions
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+  handleWSMessage: (message: WSMessage) => void;
+
   // Async actions
   sendMessage: (content: string) => Promise<void>;
   createSession: () => Promise<void>;
@@ -63,6 +70,8 @@ export const useChatStore = create<ChatStore>()(
       messages: [],
       isTyping: false,
       isThinking: false,
+      socketClient: null,
+      expandedCitation: null,
 
       // Session actions
       setSessionId: (id) => set({ sessionId: id }),
@@ -100,9 +109,111 @@ export const useChatStore = create<ChatStore>()(
       // Evidence actions
       setExpandedCitation: (citation: number | null) => set({ expandedCitation: citation }),
 
+      // WebSocket actions
+      connectWebSocket: () => {
+        const { sessionId } = get();
+        if (!sessionId) {
+          console.warn('Cannot connect WebSocket: no session ID');
+          return;
+        }
+
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+
+        const wsClient = new WebSocketClient({
+          url: wsUrl,
+          session_id: sessionId,
+          onMessage: (message: WSMessage) => {
+            get().handleWSMessage(message);
+          },
+          onOpen: () => {
+            set({ connectionStatus: 'connected', isConnected: true });
+            console.log('[WebSocket] Connected');
+          },
+          onError: (error) => {
+            console.error('[WebSocket] Error:', error);
+            set({ connectionStatus: 'error', isConnected: false });
+          },
+          onClose: () => {
+            set({ connectionStatus: 'disconnected', isConnected: false });
+            console.log('[WebSocket] Disconnected');
+          },
+          reconnectInterval: 3000,
+          maxReconnectAttempts: 10,
+          heartbeatInterval: 30000,
+        });
+
+        set({ socketClient: wsClient });
+        wsClient.connect();
+      },
+
+      disconnectWebSocket: () => {
+        const { socketClient } = get();
+        if (socketClient) {
+          socketClient.disconnect();
+          set({ socketClient: null, connectionStatus: 'disconnected', isConnected: false });
+        }
+      },
+
+      handleWSMessage: (message: WSMessage) => {
+        const { addMessage, setThinking, setTyping } = get();
+
+        switch (message.type) {
+          case 'connected':
+            console.log('[WebSocket] Connected event:', message.message);
+            break;
+
+          case 'response':
+            const assistantMessage: Message = {
+              id: `msg-${Date.now()}-assistant`,
+              role: 'assistant' as MessageRole,
+              content: message.message,
+              timestamp: new Date(),
+              confidence: message.confidence,
+              sources: message.sources,
+            };
+            addMessage(assistantMessage);
+
+            if (message.escalated) {
+              const escalatedMessage: Message = {
+                id: `msg-${Date.now()}-system`,
+                role: 'system' as MessageRole,
+                content: message.ticket_id
+                  ? `Ticket created: ${message.ticket_id}`
+                  : 'Escalated to human support.',
+                timestamp: new Date(),
+              };
+              addMessage(escalatedMessage);
+            }
+
+            setTyping(false);
+            setThinking(false);
+            break;
+
+          case 'thought':
+            setThinking(true);
+            console.log('[WebSocket] Thought:', message.step);
+            break;
+
+          case 'error':
+            const errorMessage: Message = {
+              id: `msg-${Date.now()}-error`,
+              role: 'system' as MessageRole,
+              content: message.message,
+              timestamp: new Date(),
+            };
+            addMessage(errorMessage);
+            setTyping(false);
+            setThinking(false);
+            break;
+
+          default:
+            console.log('[WebSocket] Unknown message type:', message);
+        }
+      },
+
       // Async actions
       sendMessage: async (content) => {
-        const { sessionId, addMessage, setTyping } = get();
+        const { sessionId, addMessage, setTyping, socketClient } = get();
 
         if (!sessionId) {
           console.error('No session ID. Cannot send message.');
@@ -121,37 +232,43 @@ export const useChatStore = create<ChatStore>()(
         setTyping(true);
 
         try {
-          const { chatService } = await import('@/lib/api');
+          // Use WebSocket if available, otherwise fall back to REST
+          if (socketClient && socketClient.getStatus() === 'connected') {
+            socketClient.sendChatMessage(content);
+          } else {
+            // Fallback to REST API
+            const { chatService } = await import('@/lib/api');
 
-          const request: ChatRequest = {
-            session_id: sessionId,
-            message: content,
-          };
-
-          const response: ChatResponse = await chatService.sendMessage(request);
-
-          // Add assistant message
-          const assistantMessage: Message = {
-            id: `msg-${Date.now()}-assistant`,
-            role: 'assistant' as MessageRole,
-            content: response.message,
-            timestamp: new Date(),
-            confidence: response.confidence,
-            sources: response.sources,
-          };
-
-          addMessage(assistantMessage);
-
-          if (response.escalated) {
-            const escalatedMessage: Message = {
-              id: `msg-${Date.now()}-system`,
-              role: 'system' as MessageRole,
-              content: response.ticket_id
-                ? `Ticket created: ${response.ticket_id}`
-                : 'Escalated to human support.',
-              timestamp: new Date(),
+            const request: ChatRequest = {
+              session_id: sessionId,
+              message: content,
             };
-            addMessage(escalatedMessage);
+
+            const response: ChatResponse = await chatService.sendMessage(request);
+
+            // Add assistant message
+            const assistantMessage: Message = {
+              id: `msg-${Date.now()}-assistant`,
+              role: 'assistant' as MessageRole,
+              content: response.message,
+              timestamp: new Date(),
+              confidence: response.confidence,
+              sources: response.sources,
+            };
+
+            addMessage(assistantMessage);
+
+            if (response.escalated) {
+              const escalatedMessage: Message = {
+                id: `msg-${Date.now()}-system`,
+                role: 'system' as MessageRole,
+                content: response.ticket_id
+                  ? `Ticket created: ${response.ticket_id}`
+                  : 'Escalated to human support.',
+                timestamp: new Date(),
+              };
+              addMessage(escalatedMessage);
+            }
           }
         } catch (error) {
           console.error('Failed to send message:', error);
@@ -174,10 +291,13 @@ export const useChatStore = create<ChatStore>()(
           const { authService } = await import('@/lib/api');
 
           const session = await authService.createSession();
-          const { sessionId } = session;
+          const { session_id } = session;
 
-          set({ sessionId });
-          localStorage.setItem('session_id', sessionId);
+          set({ sessionId: session_id });
+          localStorage.setItem('session_id', session_id);
+
+          // Auto-connect WebSocket after session creation
+          get().connectWebSocket();
 
           return session;
         } catch (error) {
@@ -187,7 +307,10 @@ export const useChatStore = create<ChatStore>()(
       },
 
       disconnect: async () => {
-        const { sessionId } = get();
+        const { sessionId, disconnectWebSocket } = get();
+
+        // Disconnect WebSocket first
+        disconnectWebSocket();
 
         if (sessionId) {
           try {

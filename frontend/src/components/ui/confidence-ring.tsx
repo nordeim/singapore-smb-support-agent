@@ -4,11 +4,12 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ConfidenceRingProps {
+  children?: React.ReactNode;
   confidence: number;
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function ConfidenceRing({ confidence, size = 'md' }: ConfidenceRingProps) {
+export function ConfidenceRing({ children, confidence, size = 'md' }: ConfidenceRingProps) {
   const getRingColor = () => {
     if (confidence >= 0.85) return 'ring-green-500';
     if (confidence >= 0.70) return 'ring-amber-500';

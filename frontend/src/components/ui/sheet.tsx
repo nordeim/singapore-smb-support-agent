@@ -11,6 +11,7 @@ const Sheet = React.forwardRef<
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     children?: ReactNode;
+    className?: string;
   }
 >(({ className, open, onOpenChange, children, ...props }, ref) => {
   return (
@@ -43,7 +44,7 @@ SheetTrigger.displayName = 'SheetTrigger';
 
 const SheetContent = React.forwardRef<
   HTMLDivElement,
-  {
+  React.HTMLAttributes<HTMLDivElement> & {
     children?: ReactNode;
     onClose?: () => void;
   }
@@ -71,8 +72,7 @@ const SheetContent = React.forwardRef<
         {children}
       </div>
     </div>
-  );
-});
+  ));
 SheetContent.displayName = 'SheetContent';
 
 const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -84,8 +84,7 @@ const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     >
       {props.children}
     </div>
-  );
-});
+  ));
 SheetHeader.displayName = 'SheetHeader';
 
 const SheetTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
@@ -97,8 +96,7 @@ const SheetTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTM
     >
       {props.children}
     </h3>
-  );
-});
+  ));
 SheetTitle.displayName = 'SheetTitle';
 
 export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle };

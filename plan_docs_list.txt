@@ -1,5 +1,9 @@
 # list of project planning docs (most recently updated at the top, bottom is the oldest)
 ```
+remediation_plan.md
+issues_and_suggested_remediation_plan.md
+Codebase_Review_Analysis_Report.md
+Understanding_Project.md
 PHASE8_FINAL_STATUS.md
 PHASE8_4_STATUS.md
 PHASE8_3_STATUS.md
@@ -22,6 +26,7 @@ IMPLEMENTATION_PLAN.md
 
 # File Hierarchy:
 ```text
+backend/.env
 backend/pyproject.toml
 backend/alembic.ini
 backend/pytest.ini

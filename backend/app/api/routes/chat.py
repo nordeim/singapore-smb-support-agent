@@ -159,6 +159,7 @@ async def websocket_chat(
             rag_pipeline=None,
             memory_manager=memory_manager,
             db=db,
+            ws_manager=manager,
         )
 
         await websocket.send_json(

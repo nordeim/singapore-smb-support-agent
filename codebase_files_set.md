@@ -1,3 +1,135 @@
+# backend/.env
+```txt
+# ══════════════════════════════════════════════════════════════════════════════
+# Singapore SMB Support AI Agent - Environment Variables
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Copy this file to .env and fill in your actual values.
+# Never commit .env to version control!
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API Keys & LLM Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Get your OpenRouter API key from https://openrouter.ai/keys
+OPENROUTER_API_KEY=sk-or-v1-your-own-key
+
+# Optional: Direct OpenAI API key for embeddings
+# Leave empty if using OpenRouter for everything
+OPENAI_API_KEY=
+
+# OpenRouter base URL (typically https://openrouter.ai/api/v1)
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Database Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+POSTGRES_DB=support_agent
+POSTGRES_USER=agent_user
+POSTGRES_PASSWORD=dev_password_only
+DATABASE_URL=postgresql://agent_user:dev_password_only@localhost:5432/support_agent
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Redis Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+REDIS_URL=redis://localhost:6379
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Qdrant Vector Database Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+QDRANT_URL=http://localhost:6333
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security
+# ─────────────────────────────────────────────────────────────────────────────
+# Generate a secure secret key for JWT tokens
+# openssl rand -hex 32
+#SECRET_KEY=generate-a-secure-random-string-here
+SECRET_KEY=fd9ae6eaef1b41968354c261ea43e5fa650889be878c2b3e78d350f7e1408099
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Application Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+ENVIRONMENT=development
+
+# Frontend Configuration
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Business Context (Singapore)
+# ─────────────────────────────────────────────────────────────────────────────
+# Timezone: Asia/Singapore (default)
+TIMEZONE=Asia/Singapore
+
+# Business Hours (24-hour format)
+BUSINESS_HOURS_START=09:00
+BUSINESS_HOURS_END=18:00
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PDPA Compliance Settings
+# ─────────────────────────────────────────────────────────────────────────────
+# Default data retention period in days
+DATA_RETENTION_DAYS=30
+
+# Session TTL in minutes
+SESSION_TTL_MINUTES=30
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RAG Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Embedding model: text-embedding-3-small (1536 dimensions)
+EMBEDDING_MODEL=text-embedding-3-small
+
+# Reranker model: BAAI/bge-reranker-v2-m3 (local)
+RERANKER_MODEL=BAAI/bge-reranker-v2-m3
+
+# Chunking settings
+CHUNK_SIZE=512
+CHUNK_OVERLAP=50
+CHUNK_SIMILARITY_THRESHOLD=0.5
+
+# Retrieval settings
+RETRIEVAL_TOP_K=50
+RERANK_TOP_N=5
+CONTEXT_TOKEN_BUDGET=4000
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LLM Model Configuration (via OpenRouter)
+# ─────────────────────────────────────────────────────────────────────────────
+# Primary model for most queries
+#LLM_MODEL_PRIMARY=openai/gpt-4o-mini
+LLM_MODEL_PRIMARY=mistralai/devstral-2512:free
+
+# Fallback model for complex queries
+#LLM_MODEL_FALLBACK=openai/gpt-4o
+LLM_MODEL_FALLBACK=mistralai/devstral-2512:free
+
+# Temperature for response generation
+LLM_TEMPERATURE=0.7
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Performance & Scaling
+# ─────────────────────────────────────────────────────────────────────────────
+# Maximum concurrent requests
+MAX_CONCURRENT_REQUESTS=100
+
+# Request timeout in seconds
+REQUEST_TIMEOUT=30
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Feature Flags
+# ─────────────────────────────────────────────────────────────────────────────
+# Enable debug logging
+DEBUG=false
+
+# Enable RAG evaluation metrics
+ENABLE_RAGAS_EVALUATION=false
+
+# Enable sentiment analysis
+ENABLE_SENTIMENT_ANALYSIS=true
+
+```
+
 # backend/pyproject.toml
 ```toml
 [project]
@@ -2226,10 +2358,8 @@ class BGEReranker:
 from typing import List, Optional
 from qdrant_client import models
 from qdrant_client.http.models import Distance, Filter, PointStruct
-from langchain_qdrant import FastEmbedSparse, RetrievalMode
-from langchain_community.vectorstores import Qdrant
-from langchain_openai import OpenAIEmbeddings
 from app.ingestion.embedders.embedding import embedding_generator
+from app.rag.qdrant_client import QdrantManager
 from app.config import settings
 
 
@@ -2238,12 +2368,6 @@ class HybridRetriever:
 
     def __init__(self):
         """Initialize hybrid retriever."""
-        self.embeddings = OpenAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            openai_api_key=settings.OPENROUTER_API_KEY,
-            openai_api_base=settings.OPENROUTER_BASE_URL,
-        )
-        self.sparse_embeddings = FastEmbedSparse(model_name="Qdrant/bm25")
         self.k = settings.RETRIEVAL_TOP_K
 
     async def hybrid_search(
@@ -2256,23 +2380,12 @@ class HybridRetriever:
         query_vector = await embedding_generator.generate_single(query)
 
         qdrant_filter = Filter(
-            must=[
-                models.FieldCondition(
-                    key="language", match=models.MatchValue(value="en")
-                )
-            ]
+            must=[models.FieldCondition(key="language", match=models.MatchValue(value="en"))]
         )
 
-        dense_results = await self._dense_search(
-            query_vector, collection_name, qdrant_filter
-        )
+        dense_results = await self._dense_search(query_vector, collection_name, qdrant_filter)
 
-        sparse_results = await self._sparse_search(
-            query, collection_name, qdrant_filter
-        )
-
-        fused_results = self._reciprocal_rank_fusion(dense_results, sparse_results)
-        return fused_results
+        return dense_results
 
     async def _dense_search(
         self,
@@ -2280,72 +2393,17 @@ class HybridRetriever:
         collection_name: str,
         filter: Filter,
     ) -> List[models.ScoredPoint]:
-        """Dense vector search using Qdrant."""
-        client = Qdrant.from_existing_collection(
-            embedding=self.embeddings,
+        """Dense vector search using native Qdrant client."""
+        client = QdrantManager.get_client()
+
+        results = client.query_points(
             collection_name=collection_name,
-            url=settings.QDRANT_URL,
+            query=query_vector,
+            query_filter=filter,
+            limit=self.k,
         )
 
-        results = await client.asimilarity_search_with_score(
-            query_vector,
-            k=self.k,
-            filter=filter,
-        )
-
-        return results
-
-    async def _sparse_search(
-        self, query: str, collection_name: str, filter: Filter
-    ) -> List[models.ScoredPoint]:
-        """Sparse BM25 search using Qdrant FastEmbedSparse."""
-        client = Qdrant.from_existing_collection(
-            sparse_embedding=self.sparse_embeddings,
-            retrieval_mode=RetrievalMode.HYBRID,
-            collection_name=collection_name,
-            url=settings.QDRANT_URL,
-        )
-
-        results = await client.asimilarity_search_with_score(
-            query,
-            k=self.k,
-            filter=filter,
-        )
-
-        return results
-
-    def _reciprocal_rank_fusion(
-        self,
-        dense_results: List[models.ScoredPoint],
-        sparse_results: List[models.ScoredPoint],
-        k: int = 60,
-    ) -> List[models.ScoredPoint]:
-        """Reciprocal Rank Fusion (RRF) to combine search results."""
-        score_dict = {}
-
-        for i, result in enumerate(dense_results):
-            point_id = result.id
-            if point_id not in score_dict:
-                score_dict[point_id] = 0
-            score_dict[point_id] += 1.0 / (k + i + 1)
-
-        for i, result in enumerate(sparse_results):
-            point_id = result.id
-            if point_id not in score_dict:
-                score_dict[point_id] = 0
-            score_dict[point_id] += 1.0 / (k + i + 1)
-
-        unique_results = {
-            result.id: result for result in dense_results + sparse_results
-        }
-
-        sorted_results = sorted(
-            unique_results.values(),
-            key=lambda x: score_dict[x.id],
-            reverse=True,
-        )
-
-        return sorted_results[: self.k]
+        return results.points
 
 ```
 
@@ -3773,19 +3831,22 @@ class SupportAgent:
         rag_pipeline=None,
         memory_manager: Optional[MemoryManager] = None,
         db: Optional[AsyncSession] = None,
+        ws_manager=None,
     ):
         """
-        Initialize the support agent.
+        Initialize support agent.
 
         Args:
             rag_pipeline: RAG pipeline for knowledge retrieval
             memory_manager: Memory manager for session management
             db: Database session
+            ws_manager: WebSocket connection manager for real-time events
         """
         self.rag_pipeline = rag_pipeline
         self.memory_manager = memory_manager
         self.db = db
         self.validator = ResponseValidator()
+        self.ws_manager = ws_manager
 
     def _get_system_prompt(self, context: AgentContext) -> str:
         """Get formatted system prompt with context."""
@@ -3820,21 +3881,6 @@ class SupportAgent:
             business_hours_status=business_hours_status,
         )
 
-        working_memory = await self.memory_manager.get_working_memory(session_id)
-
-        from app.dependencies import BusinessContext
-
-        business_context = BusinessContext()
-        business_hours_status = "open" if business_context.is_business_hours() else "closed"
-
-        return AgentContext(
-            session_id=session_id,
-            user_id=user_id,
-            conversation_summary=working_memory.get("conversation_summary", ""),
-            recent_messages=working_memory.get("recent_messages", []),
-            business_hours_status=business_hours_status,
-        )
-
     async def process_message(
         self,
         message: str,
@@ -3853,7 +3899,11 @@ class SupportAgent:
             AgentResponse with generated response
         """
         try:
+            await self._emit_thought(session_id, "assembling_context")
+
             context = await self._assemble_context(session_id, user_id)
+
+            await self._emit_thought(session_id, "validating_input")
 
             validation_result = self.validator.validate_response(
                 text=message,
@@ -3872,6 +3922,7 @@ class SupportAgent:
             sources = []
 
             if self.rag_pipeline:
+                await self._emit_thought(session_id, "searching_knowledge")
                 from app.agent.tools.retrieve_knowledge import retrieve_knowledge
                 from app.config import settings
 
@@ -3883,6 +3934,10 @@ class SupportAgent:
 
                 if knowledge_result.success:
                     sources = knowledge_result.sources
+
+                await self._emit_thought(session_id, "knowledge_retrieved")
+
+            await self._emit_thought(session_id, "generating_response")
 
             response_text = self._generate_response(
                 query=message,
@@ -3944,6 +3999,18 @@ class SupportAgent:
                 ticket_id=None,
             )
 
+    async def _emit_thought(self, session_id: str, step: str, details: str = ""):
+        """Emit thought event via WebSocket if manager is available."""
+        if self.ws_manager:
+            await self.ws_manager.send_message(
+                session_id=session_id,
+                message={
+                    "type": "thought",
+                    "step": step,
+                    "details": details,
+                },
+            )
+
     def _generate_response(
         self,
         query: str,
@@ -3997,12 +4064,14 @@ async def get_support_agent(
     rag_pipeline=None,
     memory_manager: Optional[MemoryManager] = None,
     db: Optional[AsyncSession] = None,
+    ws_manager=None,
 ) -> SupportAgent:
     """Factory function to create support agent instance."""
     return SupportAgent(
         rag_pipeline=rag_pipeline,
         memory_manager=memory_manager,
         db=db,
+        ws_manager=ws_manager,
     )
 
 ```
@@ -4556,6 +4625,7 @@ async def websocket_chat(
             rag_pipeline=None,
             memory_manager=memory_manager,
             db=db,
+            ws_manager=manager,
         )
 
         await websocket.send_json(
@@ -6248,14 +6318,15 @@ if __name__ == "__main__":
       "name": "singapore-smb-support-agent-frontend",
       "version": "0.1.0",
       "dependencies": {
-        "@fontsource-variable/inter": "^5.2.8",
-        "@fontsource/manrope": "^5.2.8",
+        "@fontsource-variable/inter": "^5.2.5",
+        "@fontsource/manrope": "^5.1.3",
         "@radix-ui/react-avatar": "^1.1.11",
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-scroll-area": "^1.2.10",
         "@radix-ui/react-separator": "^1.1.8",
         "@radix-ui/react-slot": "^1.2.4",
         "@tanstack/react-query": "^5.90.14",
+        "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
         "lucide-react": "^0.562.0",
@@ -6590,9 +6661,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@eslint-community/eslint-utils": {
-      "version": "4.9.0",
-      "resolved": "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.9.0.tgz",
-      "integrity": "sha512-ayVFHdtZ+hsq1t2Dy24wCmGXGe4q9Gu3smhLYALJrr473ZH27MsnSL+LKUlimp4BWJqMDMLmPpx/Q9R3OAlL4g==",
+      "version": "4.9.1",
+      "resolved": "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.9.1.tgz",
+      "integrity": "sha512-phrYmNiYppR7znFEdqgfWHXR6NCkZEK7hwWDHZUjit/2/U0r6XvkDl0SYnoM51Hq7FhCGdLDT6zxCCOY1hexsQ==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
@@ -8265,9 +8336,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@tanstack/query-core": {
-      "version": "5.90.14",
-      "resolved": "https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.90.14.tgz",
-      "integrity": "sha512-/6di2yNI+YxpVrH9Ig74Q+puKnkCE+D0LGyagJEGndJHJc6ahkcc/UqirHKy8zCYE/N9KLggxcQvzYCsUBWgdw==",
+      "version": "5.90.16",
+      "resolved": "https://registry.npmjs.org/@tanstack/query-core/-/query-core-5.90.16.tgz",
+      "integrity": "sha512-MvtWckSVufs/ja463/K4PyJeqT+HMlJWtw6PrCpywznd2NSgO3m4KwO9RqbFqGg6iDE8vVMFWMeQI4Io3eEYww==",
       "license": "MIT",
       "funding": {
         "type": "github",
@@ -8275,12 +8346,12 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@tanstack/react-query": {
-      "version": "5.90.14",
-      "resolved": "https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.90.14.tgz",
-      "integrity": "sha512-JAMuULej09hrZ14W9+mxoRZ44rR2BuZfCd6oKTQVNfynQxCN3muH3jh3W46gqZNw5ZqY0ZVaS43Imb3dMr6tgw==",
+      "version": "5.90.16",
+      "resolved": "https://registry.npmjs.org/@tanstack/react-query/-/react-query-5.90.16.tgz",
+      "integrity": "sha512-bpMGOmV4OPmif7TNMteU/Ehf/hoC0Kf98PDc0F4BZkFrEapRMEqI/V6YS0lyzwSV6PQpY1y4xxArUIfBW5LVxQ==",
       "license": "MIT",
       "dependencies": {
-        "@tanstack/query-core": "5.90.14"
+        "@tanstack/query-core": "5.90.16"
       },
       "funding": {
         "type": "github",
@@ -8355,20 +8426,20 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/eslint-plugin": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.50.1.tgz",
-      "integrity": "sha512-PKhLGDq3JAg0Jk/aK890knnqduuI/Qj+udH7wCf0217IGi4gt+acgCyPVe79qoT+qKUvHMDQkwJeKW9fwl8Cyw==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.51.0.tgz",
+      "integrity": "sha512-XtssGWJvypyM2ytBnSnKtHYOGT+4ZwTnBVl36TA4nRO2f4PRNGz5/1OszHzcZCvcBMh+qb7I06uoCmLTRdR9og==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
         "@eslint-community/regexpp": "^4.10.0",
-        "@typescript-eslint/scope-manager": "8.50.1",
-        "@typescript-eslint/type-utils": "8.50.1",
-        "@typescript-eslint/utils": "8.50.1",
-        "@typescript-eslint/visitor-keys": "8.50.1",
+        "@typescript-eslint/scope-manager": "8.51.0",
+        "@typescript-eslint/type-utils": "8.51.0",
+        "@typescript-eslint/utils": "8.51.0",
+        "@typescript-eslint/visitor-keys": "8.51.0",
         "ignore": "^7.0.0",
         "natural-compare": "^1.4.0",
-        "ts-api-utils": "^2.1.0"
+        "ts-api-utils": "^2.2.0"
       },
       "engines": {
         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
@@ -8378,23 +8449,23 @@ if __name__ == "__main__":
         "url": "https://opencollective.com/typescript-eslint"
       },
       "peerDependencies": {
-        "@typescript-eslint/parser": "^8.50.1",
+        "@typescript-eslint/parser": "^8.51.0",
         "eslint": "^8.57.0 || ^9.0.0",
         "typescript": ">=4.8.4 <6.0.0"
       }
     },
     "node_modules/@typescript-eslint/parser": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/parser/-/parser-8.50.1.tgz",
-      "integrity": "sha512-hM5faZwg7aVNa819m/5r7D0h0c9yC4DUlWAOvHAtISdFTc8xB86VmX5Xqabrama3wIPJ/q9RbGS1worb6JfnMg==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/parser/-/parser-8.51.0.tgz",
+      "integrity": "sha512-3xP4XzzDNQOIqBMWogftkwxhg5oMKApqY0BAflmLZiFYHqyhSOxv/cd/zPQLTcCXr4AkaKb25joocY0BD1WC6A==",
       "dev": true,
       "license": "MIT",
       "peer": true,
       "dependencies": {
-        "@typescript-eslint/scope-manager": "8.50.1",
-        "@typescript-eslint/types": "8.50.1",
-        "@typescript-eslint/typescript-estree": "8.50.1",
-        "@typescript-eslint/visitor-keys": "8.50.1",
+        "@typescript-eslint/scope-manager": "8.51.0",
+        "@typescript-eslint/types": "8.51.0",
+        "@typescript-eslint/typescript-estree": "8.51.0",
+        "@typescript-eslint/visitor-keys": "8.51.0",
         "debug": "^4.3.4"
       },
       "engines": {
@@ -8410,14 +8481,14 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/project-service": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/project-service/-/project-service-8.50.1.tgz",
-      "integrity": "sha512-E1ur1MCVf+YiP89+o4Les/oBAVzmSbeRB0MQLfSlYtbWU17HPxZ6Bhs5iYmKZRALvEuBoXIZMOIRRc/P++Ortg==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/project-service/-/project-service-8.51.0.tgz",
+      "integrity": "sha512-Luv/GafO07Z7HpiI7qeEW5NW8HUtZI/fo/kE0YbtQEFpJRUuR0ajcWfCE5bnMvL7QQFrmT/odMe8QZww8X2nfQ==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
-        "@typescript-eslint/tsconfig-utils": "^8.50.1",
-        "@typescript-eslint/types": "^8.50.1",
+        "@typescript-eslint/tsconfig-utils": "^8.51.0",
+        "@typescript-eslint/types": "^8.51.0",
         "debug": "^4.3.4"
       },
       "engines": {
@@ -8432,14 +8503,14 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/scope-manager": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/scope-manager/-/scope-manager-8.50.1.tgz",
-      "integrity": "sha512-mfRx06Myt3T4vuoHaKi8ZWNTPdzKPNBhiblze5N50//TSHOAQQevl/aolqA/BcqqbJ88GUnLqjjcBc8EWdBcVw==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/scope-manager/-/scope-manager-8.51.0.tgz",
+      "integrity": "sha512-JhhJDVwsSx4hiOEQPeajGhCWgBMBwVkxC/Pet53EpBVs7zHHtayKefw1jtPaNRXpI9RA2uocdmpdfE7T+NrizA==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
-        "@typescript-eslint/types": "8.50.1",
-        "@typescript-eslint/visitor-keys": "8.50.1"
+        "@typescript-eslint/types": "8.51.0",
+        "@typescript-eslint/visitor-keys": "8.51.0"
       },
       "engines": {
         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
@@ -8450,9 +8521,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/tsconfig-utils": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/tsconfig-utils/-/tsconfig-utils-8.50.1.tgz",
-      "integrity": "sha512-ooHmotT/lCWLXi55G4mvaUF60aJa012QzvLK0Y+Mp4WdSt17QhMhWOaBWeGTFVkb2gDgBe19Cxy1elPXylslDw==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/tsconfig-utils/-/tsconfig-utils-8.51.0.tgz",
+      "integrity": "sha512-Qi5bSy/vuHeWyir2C8u/uqGMIlIDu8fuiYWv48ZGlZ/k+PRPHtaAu7erpc7p5bzw2WNNSniuxoMSO4Ar6V9OXw==",
       "dev": true,
       "license": "MIT",
       "engines": {
@@ -8467,17 +8538,17 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/type-utils": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/type-utils/-/type-utils-8.50.1.tgz",
-      "integrity": "sha512-7J3bf022QZE42tYMO6SL+6lTPKFk/WphhRPe9Tw/el+cEwzLz1Jjz2PX3GtGQVxooLDKeMVmMt7fWpYRdG5Etg==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/type-utils/-/type-utils-8.51.0.tgz",
+      "integrity": "sha512-0XVtYzxnobc9K0VU7wRWg1yiUrw4oQzexCG2V2IDxxCxhqBMSMbjB+6o91A+Uc0GWtgjCa3Y8bi7hwI0Tu4n5Q==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
-        "@typescript-eslint/types": "8.50.1",
-        "@typescript-eslint/typescript-estree": "8.50.1",
-        "@typescript-eslint/utils": "8.50.1",
+        "@typescript-eslint/types": "8.51.0",
+        "@typescript-eslint/typescript-estree": "8.51.0",
+        "@typescript-eslint/utils": "8.51.0",
         "debug": "^4.3.4",
-        "ts-api-utils": "^2.1.0"
+        "ts-api-utils": "^2.2.0"
       },
       "engines": {
         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
@@ -8492,9 +8563,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/types": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/types/-/types-8.50.1.tgz",
-      "integrity": "sha512-v5lFIS2feTkNyMhd7AucE/9j/4V9v5iIbpVRncjk/K0sQ6Sb+Np9fgYS/63n6nwqahHQvbmujeBL7mp07Q9mlA==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/types/-/types-8.51.0.tgz",
+      "integrity": "sha512-TizAvWYFM6sSscmEakjY3sPqGwxZRSywSsPEiuZF6d5GmGD9Gvlsv0f6N8FvAAA0CD06l3rIcWNbsN1e5F/9Ag==",
       "dev": true,
       "license": "MIT",
       "engines": {
@@ -8506,21 +8577,21 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/typescript-estree": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/typescript-estree/-/typescript-estree-8.50.1.tgz",
-      "integrity": "sha512-woHPdW+0gj53aM+cxchymJCrh0cyS7BTIdcDxWUNsclr9VDkOSbqC13juHzxOmQ22dDkMZEpZB+3X1WpUvzgVQ==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/typescript-estree/-/typescript-estree-8.51.0.tgz",
+      "integrity": "sha512-1qNjGqFRmlq0VW5iVlcyHBbCjPB7y6SxpBkrbhNWMy/65ZoncXCEPJxkRZL8McrseNH6lFhaxCIaX+vBuFnRng==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
-        "@typescript-eslint/project-service": "8.50.1",
-        "@typescript-eslint/tsconfig-utils": "8.50.1",
-        "@typescript-eslint/types": "8.50.1",
-        "@typescript-eslint/visitor-keys": "8.50.1",
+        "@typescript-eslint/project-service": "8.51.0",
+        "@typescript-eslint/tsconfig-utils": "8.51.0",
+        "@typescript-eslint/types": "8.51.0",
+        "@typescript-eslint/visitor-keys": "8.51.0",
         "debug": "^4.3.4",
         "minimatch": "^9.0.4",
         "semver": "^7.6.0",
         "tinyglobby": "^0.2.15",
-        "ts-api-utils": "^2.1.0"
+        "ts-api-utils": "^2.2.0"
       },
       "engines": {
         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
@@ -8534,16 +8605,16 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/utils": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/utils/-/utils-8.50.1.tgz",
-      "integrity": "sha512-lCLp8H1T9T7gPbEuJSnHwnSuO9mDf8mfK/Nion5mZmiEaQD9sWf9W4dfeFqRyqRjF06/kBuTmAqcs9sewM2NbQ==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/utils/-/utils-8.51.0.tgz",
+      "integrity": "sha512-11rZYxSe0zabiKaCP2QAwRf/dnmgFgvTmeDTtZvUvXG3UuAdg/GU02NExmmIXzz3vLGgMdtrIosI84jITQOxUA==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
         "@eslint-community/eslint-utils": "^4.7.0",
-        "@typescript-eslint/scope-manager": "8.50.1",
-        "@typescript-eslint/types": "8.50.1",
-        "@typescript-eslint/typescript-estree": "8.50.1"
+        "@typescript-eslint/scope-manager": "8.51.0",
+        "@typescript-eslint/types": "8.51.0",
+        "@typescript-eslint/typescript-estree": "8.51.0"
       },
       "engines": {
         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
@@ -8558,13 +8629,13 @@ if __name__ == "__main__":
       }
     },
     "node_modules/@typescript-eslint/visitor-keys": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/@typescript-eslint/visitor-keys/-/visitor-keys-8.50.1.tgz",
-      "integrity": "sha512-IrDKrw7pCRUR94zeuCSUWQ+w8JEf5ZX5jl/e6AHGSLi1/zIr0lgutfn/7JpfCey+urpgQEdrZVYzCaVVKiTwhQ==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/@typescript-eslint/visitor-keys/-/visitor-keys-8.51.0.tgz",
+      "integrity": "sha512-mM/JRQOzhVN1ykejrvwnBRV3+7yTKK8tVANVN3o1O0t0v7o+jqdVu9crPy5Y9dov15TJk/FTIgoUGHrTOVL3Zg==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
-        "@typescript-eslint/types": "8.50.1",
+        "@typescript-eslint/types": "8.51.0",
         "eslint-visitor-keys": "^4.2.1"
       },
       "engines": {
@@ -9374,9 +9445,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/caniuse-lite": {
-      "version": "1.0.30001761",
-      "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001761.tgz",
-      "integrity": "sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g==",
+      "version": "1.0.30001762",
+      "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001762.tgz",
+      "integrity": "sha512-PxZwGNvH7Ak8WX5iXzoK1KPZttBXNPuaOvI2ZYU7NrlM+d9Ov+TUvlLOBNGzVXAntMSMMlJPd+jY6ovrVjSmUw==",
       "funding": [
         {
           "type": "opencollective",
@@ -9444,6 +9515,18 @@ if __name__ == "__main__":
       },
       "engines": {
         "node": ">= 6"
+      }
+    },
+    "node_modules/class-variance-authority": {
+      "version": "0.7.1",
+      "resolved": "https://registry.npmjs.org/class-variance-authority/-/class-variance-authority-0.7.1.tgz",
+      "integrity": "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==",
+      "license": "Apache-2.0",
+      "dependencies": {
+        "clsx": "^2.1.1"
+      },
+      "funding": {
+        "url": "https://polar.sh/cva"
       }
     },
     "node_modules/client-only": {
@@ -10473,9 +10556,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/esquery": {
-      "version": "1.6.0",
-      "resolved": "https://registry.npmjs.org/esquery/-/esquery-1.6.0.tgz",
-      "integrity": "sha512-ca9pw9fomFcKPvFLXhBKUK90ZvGibiGOvRJNbjljY7s7uq/5YO4BOzcYtJqExdx99rF6aAcnRxHmcUHcz6sQsg==",
+      "version": "1.7.0",
+      "resolved": "https://registry.npmjs.org/esquery/-/esquery-1.7.0.tgz",
+      "integrity": "sha512-Ap6G0WQwcU/LHsvLwON1fAQX9Zp0A2Y6Y/cJBl9r/JbW90Zyg4/zbG6zzKa2OTALELarYHmKu0GhpM5EO+7T0g==",
       "dev": true,
       "license": "BSD-3-Clause",
       "dependencies": {
@@ -13466,16 +13549,16 @@ if __name__ == "__main__":
       }
     },
     "node_modules/typescript-eslint": {
-      "version": "8.50.1",
-      "resolved": "https://registry.npmjs.org/typescript-eslint/-/typescript-eslint-8.50.1.tgz",
-      "integrity": "sha512-ytTHO+SoYSbhAH9CrYnMhiLx8To6PSSvqnvXyPUgPETCvB6eBKmTI9w6XMPS3HsBRGkwTVBX+urA8dYQx6bHfQ==",
+      "version": "8.51.0",
+      "resolved": "https://registry.npmjs.org/typescript-eslint/-/typescript-eslint-8.51.0.tgz",
+      "integrity": "sha512-jh8ZuM5oEh2PSdyQG9YAEM1TCGuWenLSuSUhf/irbVUNW9O5FhbFVONviN2TgMTBnUmyHv7E56rYnfLZK6TkiA==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
-        "@typescript-eslint/eslint-plugin": "8.50.1",
-        "@typescript-eslint/parser": "8.50.1",
-        "@typescript-eslint/typescript-estree": "8.50.1",
-        "@typescript-eslint/utils": "8.50.1"
+        "@typescript-eslint/eslint-plugin": "8.51.0",
+        "@typescript-eslint/parser": "8.51.0",
+        "@typescript-eslint/typescript-estree": "8.51.0",
+        "@typescript-eslint/utils": "8.51.0"
       },
       "engines": {
         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
@@ -13785,9 +13868,9 @@ if __name__ == "__main__":
       }
     },
     "node_modules/zod": {
-      "version": "4.2.1",
-      "resolved": "https://registry.npmjs.org/zod/-/zod-4.2.1.tgz",
-      "integrity": "sha512-0wZ1IRqGGhMP76gLqz8EyfBXKk0J2qo2+H3fi4mcUP/KtTocoX08nmIAHl1Z2kJIZbZee8KOpBCSNPRgauucjw==",
+      "version": "4.3.2",
+      "resolved": "https://registry.npmjs.org/zod/-/zod-4.3.2.tgz",
+      "integrity": "sha512-b8L8yn4rIVfiXyHAmnr52/ZEpDumlT0bmxiq3Ws1ybrinhflGpt12Hvv54kYnEsGPRs6o/Ka3/ppA2OWY21IVg==",
       "dev": true,
       "license": "MIT",
       "peer": true,
@@ -13865,8 +13948,8 @@ if __name__ == "__main__":
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.90.14",
-    "clsx": "^2.1.1",
     "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.562.0",
     "next": "^15.5.9",
@@ -13974,7 +14057,7 @@ module.exports = {
 
 # frontend/tailwind.config.ts
 ```ts
-import type { next } from "next"
+import type { Config } from "tailwindcss"
 import tailwindcssAnimate from "tailwindcss-animate"
 
 const config = {
@@ -14326,38 +14409,47 @@ export { Card, CardHeader, CardTitle, CardContent };
 ```tsx
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { ScrollAreaProps as RadixScrollAreaProps } from '@radix-ui/react-scroll-area';
-import { ScrollArea as RadixScrollArea } from '@radix-ui/react-scroll-area';
+import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
 
 const ScrollArea = React.forwardRef<
-  HTMLDivElement,
-  RadixScrollAreaProps
+  React.ElementRef<typeof ScrollAreaPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
 >(({ className, children, ...props }, ref) => (
-  <RadixScrollArea
+  <ScrollAreaPrimitive.Root
     ref={ref}
     className={cn('relative overflow-hidden', className)}
     {...props}
   >
-    <RadixScrollArea.Viewport className="h-full w-full rounded-[inherit]">
+    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
       {children}
-    </RadixScrollArea.Viewport>
-    <RadixScrollArea.Scrollbar
-      className="flex touch-none select-none transition-colors"
-      orientation="vertical"
-    >
-      <RadixScrollArea.Thumb className="relative flex-1 w-2.5 rounded-full bg-border" />
-    </RadixScrollArea.Scrollbar>
-    <RadixScrollArea.Scrollbar
-      className="flex touch-none select-none transition-colors"
-      orientation="horizontal"
-    >
-      <RadixScrollArea.Thumb className="relative flex-1 h-2.5 rounded-full bg-border" />
-    </RadixScrollArea.Scrollbar>
-  </RadixScrollArea>
+    </ScrollAreaPrimitive.Viewport>
+    <ScrollBar />
+    <ScrollAreaPrimitive.Corner />
+  </ScrollAreaPrimitive.Root>
 ));
-ScrollArea.displayName = 'ScrollArea';
+ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
 
-export { ScrollArea };
+const ScrollBar = React.forwardRef<
+  React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>
+>(({ className, orientation = 'vertical', ...props }, ref) => (
+  <ScrollAreaPrimitive.ScrollAreaScrollbar
+    ref={ref}
+    orientation={orientation}
+    className={cn(
+      'flex touch-none select-none transition-colors',
+      orientation === 'vertical' && 'h-full w-2.5 border-l border-l-transparent p-[1px]',
+      orientation === 'horizontal' && 'h-2.5 flex-col border-t border-t-transparent p-[1px]',
+      className
+    )}
+    {...props}
+  >
+    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
+  </ScrollAreaPrimitive.ScrollAreaScrollbar>
+));
+ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName;
+
+export { ScrollArea, ScrollBar };
 
 ```
 
@@ -14508,6 +14600,7 @@ const Sheet = React.forwardRef<
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     children?: ReactNode;
+    className?: string;
   }
 >(({ className, open, onOpenChange, children, ...props }, ref) => {
   return (
@@ -14540,7 +14633,7 @@ SheetTrigger.displayName = 'SheetTrigger';
 
 const SheetContent = React.forwardRef<
   HTMLDivElement,
-  {
+  React.HTMLAttributes<HTMLDivElement> & {
     children?: ReactNode;
     onClose?: () => void;
   }
@@ -14568,8 +14661,7 @@ const SheetContent = React.forwardRef<
         {children}
       </div>
     </div>
-  );
-});
+  ));
 SheetContent.displayName = 'SheetContent';
 
 const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -14581,8 +14673,7 @@ const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     >
       {props.children}
     </div>
-  );
-});
+  ));
 SheetHeader.displayName = 'SheetHeader';
 
 const SheetTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
@@ -14594,8 +14685,7 @@ const SheetTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTM
     >
       {props.children}
     </h3>
-  );
-});
+  ));
 SheetTitle.displayName = 'SheetTitle';
 
 export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle };
@@ -14636,11 +14726,12 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ConfidenceRingProps {
+  children?: React.ReactNode;
   confidence: number;
   size?: 'sm' | 'md' | 'lg';
 }
 
-export function ConfidenceRing({ confidence, size = 'md' }: ConfidenceRingProps) {
+export function ConfidenceRing({ children, confidence, size = 'md' }: ConfidenceRingProps) {
   const getRingColor = () => {
     if (confidence >= 0.85) return 'ring-green-500';
     if (confidence >= 0.70) return 'ring-amber-500';
@@ -15091,7 +15182,7 @@ export function EvidenceSheet({ source, isOpen, onClose }: EvidenceSheetProps) {
         <div className="p-6 space-y-4">
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">
-              File: {source.metadata?.file_name || 'Unknown'}
+              File: {String(source.metadata?.file_name || 'Unknown')}
             </div>
             <div className="text-sm text-muted-foreground">
               Confidence: {(source.score * 100).toFixed(1)}%
@@ -15221,10 +15312,20 @@ interface ThinkingStateProps {
 }
 
 const THOUGHT_STEPS = [
-  { text: "Scanning Knowledge Base...", icon: Loader2 },
-  { text: "Cross-referencing Policies...", icon: Loader2 },
-  { text: "Formatting Response...", icon: Loader2 },
+  { text: "Scanning Knowledge Base..." },
+  { text: "Cross-referencing Policies..." },
+  { text: "Formatting Response..." },
 ];
+
+function ThinkingDots() {
+  return (
+    <div className="flex gap-1">
+      <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+      <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+      <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+    </div>
+  );
+}
 
 export function ThinkingState({ isThinking }: ThinkingStateProps) {
   const [currentStep, setCurrentStep] = React.useState(0);
@@ -15233,7 +15334,7 @@ export function ThinkingState({ isThinking }: ThinkingStateProps) {
     if (isThinking) {
       const interval = setInterval(() => {
         setCurrentStep((prev) => (prev + 1) % THOUGHT_STEPS.length);
-      }, 2000); // 2s per step
+      }, 2000);
       return () => clearInterval(interval);
     } else {
       setCurrentStep(0);
@@ -15309,7 +15410,7 @@ export function SessionPulse({ expiresAt, onExtend, onWipe }: SessionPulseProps)
 # frontend/src/stores/chatStore.ts
 ```ts
 /**
- * Zustand store for chat state management
+ * Zustand store for chat state management with WebSocket integration
  */
 
 import { create } from 'zustand';
@@ -15319,7 +15420,9 @@ import type {
   MessageRole,
   ChatRequest,
   ChatResponse,
+  WSMessage,
 } from '@/types';
+import { WebSocketClient } from '@/lib/websocket';
 
 interface ChatStore {
   // Session state
@@ -15337,8 +15440,8 @@ interface ChatStore {
   // Evidence Sheet
   expandedCitation: number | null;
 
-  // Evidence Sheet
-  expandedCitation: number | null;
+  // WebSocket client
+  socketClient: WebSocketClient | null;
 
   // Actions
   setSessionId: (id: string) => void;
@@ -15357,6 +15460,11 @@ interface ChatStore {
   // Evidence actions
   setExpandedCitation: (citation: number | null) => void;
 
+  // WebSocket actions
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+  handleWSMessage: (message: WSMessage) => void;
+
   // Async actions
   sendMessage: (content: string) => Promise<void>;
   createSession: () => Promise<void>;
@@ -15373,6 +15481,8 @@ export const useChatStore = create<ChatStore>()(
       messages: [],
       isTyping: false,
       isThinking: false,
+      socketClient: null,
+      expandedCitation: null,
 
       // Session actions
       setSessionId: (id) => set({ sessionId: id }),
@@ -15410,9 +15520,111 @@ export const useChatStore = create<ChatStore>()(
       // Evidence actions
       setExpandedCitation: (citation: number | null) => set({ expandedCitation: citation }),
 
+      // WebSocket actions
+      connectWebSocket: () => {
+        const { sessionId } = get();
+        if (!sessionId) {
+          console.warn('Cannot connect WebSocket: no session ID');
+          return;
+        }
+
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+
+        const wsClient = new WebSocketClient({
+          url: wsUrl,
+          session_id: sessionId,
+          onMessage: (message: WSMessage) => {
+            get().handleWSMessage(message);
+          },
+          onOpen: () => {
+            set({ connectionStatus: 'connected', isConnected: true });
+            console.log('[WebSocket] Connected');
+          },
+          onError: (error) => {
+            console.error('[WebSocket] Error:', error);
+            set({ connectionStatus: 'error', isConnected: false });
+          },
+          onClose: () => {
+            set({ connectionStatus: 'disconnected', isConnected: false });
+            console.log('[WebSocket] Disconnected');
+          },
+          reconnectInterval: 3000,
+          maxReconnectAttempts: 10,
+          heartbeatInterval: 30000,
+        });
+
+        set({ socketClient: wsClient });
+        wsClient.connect();
+      },
+
+      disconnectWebSocket: () => {
+        const { socketClient } = get();
+        if (socketClient) {
+          socketClient.disconnect();
+          set({ socketClient: null, connectionStatus: 'disconnected', isConnected: false });
+        }
+      },
+
+      handleWSMessage: (message: WSMessage) => {
+        const { addMessage, setThinking, setTyping } = get();
+
+        switch (message.type) {
+          case 'connected':
+            console.log('[WebSocket] Connected event:', message.message);
+            break;
+
+          case 'response':
+            const assistantMessage: Message = {
+              id: `msg-${Date.now()}-assistant`,
+              role: 'assistant' as MessageRole,
+              content: message.message,
+              timestamp: new Date(),
+              confidence: message.confidence,
+              sources: message.sources,
+            };
+            addMessage(assistantMessage);
+
+            if (message.escalated) {
+              const escalatedMessage: Message = {
+                id: `msg-${Date.now()}-system`,
+                role: 'system' as MessageRole,
+                content: message.ticket_id
+                  ? `Ticket created: ${message.ticket_id}`
+                  : 'Escalated to human support.',
+                timestamp: new Date(),
+              };
+              addMessage(escalatedMessage);
+            }
+
+            setTyping(false);
+            setThinking(false);
+            break;
+
+          case 'thought':
+            setThinking(true);
+            console.log('[WebSocket] Thought:', message.step);
+            break;
+
+          case 'error':
+            const errorMessage: Message = {
+              id: `msg-${Date.now()}-error`,
+              role: 'system' as MessageRole,
+              content: message.message,
+              timestamp: new Date(),
+            };
+            addMessage(errorMessage);
+            setTyping(false);
+            setThinking(false);
+            break;
+
+          default:
+            console.log('[WebSocket] Unknown message type:', message);
+        }
+      },
+
       // Async actions
       sendMessage: async (content) => {
-        const { sessionId, addMessage, setTyping } = get();
+        const { sessionId, addMessage, setTyping, socketClient } = get();
 
         if (!sessionId) {
           console.error('No session ID. Cannot send message.');
@@ -15431,37 +15643,43 @@ export const useChatStore = create<ChatStore>()(
         setTyping(true);
 
         try {
-          const { chatService } = await import('@/lib/api');
+          // Use WebSocket if available, otherwise fall back to REST
+          if (socketClient && socketClient.getStatus() === 'connected') {
+            socketClient.sendChatMessage(content);
+          } else {
+            // Fallback to REST API
+            const { chatService } = await import('@/lib/api');
 
-          const request: ChatRequest = {
-            session_id: sessionId,
-            message: content,
-          };
-
-          const response: ChatResponse = await chatService.sendMessage(request);
-
-          // Add assistant message
-          const assistantMessage: Message = {
-            id: `msg-${Date.now()}-assistant`,
-            role: 'assistant' as MessageRole,
-            content: response.message,
-            timestamp: new Date(),
-            confidence: response.confidence,
-            sources: response.sources,
-          };
-
-          addMessage(assistantMessage);
-
-          if (response.escalated) {
-            const escalatedMessage: Message = {
-              id: `msg-${Date.now()}-system`,
-              role: 'system' as MessageRole,
-              content: response.ticket_id
-                ? `Ticket created: ${response.ticket_id}`
-                : 'Escalated to human support.',
-              timestamp: new Date(),
+            const request: ChatRequest = {
+              session_id: sessionId,
+              message: content,
             };
-            addMessage(escalatedMessage);
+
+            const response: ChatResponse = await chatService.sendMessage(request);
+
+            // Add assistant message
+            const assistantMessage: Message = {
+              id: `msg-${Date.now()}-assistant`,
+              role: 'assistant' as MessageRole,
+              content: response.message,
+              timestamp: new Date(),
+              confidence: response.confidence,
+              sources: response.sources,
+            };
+
+            addMessage(assistantMessage);
+
+            if (response.escalated) {
+              const escalatedMessage: Message = {
+                id: `msg-${Date.now()}-system`,
+                role: 'system' as MessageRole,
+                content: response.ticket_id
+                  ? `Ticket created: ${response.ticket_id}`
+                  : 'Escalated to human support.',
+                timestamp: new Date(),
+              };
+              addMessage(escalatedMessage);
+            }
           }
         } catch (error) {
           console.error('Failed to send message:', error);
@@ -15484,10 +15702,13 @@ export const useChatStore = create<ChatStore>()(
           const { authService } = await import('@/lib/api');
 
           const session = await authService.createSession();
-          const { sessionId } = session;
+          const { session_id } = session;
 
-          set({ sessionId });
-          localStorage.setItem('session_id', sessionId);
+          set({ sessionId: session_id });
+          localStorage.setItem('session_id', session_id);
+
+          // Auto-connect WebSocket after session creation
+          get().connectWebSocket();
 
           return session;
         } catch (error) {
@@ -15497,7 +15718,10 @@ export const useChatStore = create<ChatStore>()(
       },
 
       disconnect: async () => {
-        const { sessionId } = get();
+        const { sessionId, disconnectWebSocket } = get();
+
+        // Disconnect WebSocket first
+        disconnectWebSocket();
 
         if (sessionId) {
           try {
@@ -15785,17 +16009,16 @@ export class WebSocketClient {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempts = 0;
 
-  private readonly options: Required<WebSocketClientOptions>;
+  private readonly options: WebSocketClientOptions & {
+    reconnectInterval: number;
+    maxReconnectAttempts: number;
+    heartbeatInterval: number;
+  };
   private _status: ConnectionStatus = 'disconnected';
 
   constructor(options: WebSocketClientOptions) {
     this.options = {
-      url: options.url,
-      session_id: options.session_id,
-      onMessage: options.onMessage,
-      onError: options.onError,
-      onClose: options.onClose,
-      onOpen: options.onOpen,
+      ...options,
       reconnectInterval: options.reconnectInterval || 3000,
       maxReconnectAttempts: options.maxReconnectAttempts || 10,
       heartbeatInterval: options.heartbeatInterval || 30000,
@@ -16101,11 +16324,17 @@ export interface WSMessageRequest {
   message: string;
 }
 
+export interface WSThought {
+  type: 'thought';
+  step: string;
+  details?: string;
+}
+
 export interface WSDisconnect {
   type: 'disconnect';
 }
 
-export type WSMessage = WSConnected | WSResponse | WSError | WSPong;
+export type WSMessage = WSConnected | WSResponse | WSThought | WSError | WSPong;
 export type WSRequest = WSMessageRequest | WSPing | WSDisconnect;
 
 // Business hours type

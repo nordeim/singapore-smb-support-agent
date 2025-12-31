@@ -8,10 +8,20 @@ interface ThinkingStateProps {
 }
 
 const THOUGHT_STEPS = [
-  { text: "Scanning Knowledge Base...", icon: Loader2 },
-  { text: "Cross-referencing Policies...", icon: Loader2 },
-  { text: "Formatting Response...", icon: Loader2 },
+  { text: "Scanning Knowledge Base..." },
+  { text: "Cross-referencing Policies..." },
+  { text: "Formatting Response..." },
 ];
+
+function ThinkingDots() {
+  return (
+    <div className="flex gap-1">
+      <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+      <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+      <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+    </div>
+  );
+}
 
 export function ThinkingState({ isThinking }: ThinkingStateProps) {
   const [currentStep, setCurrentStep] = React.useState(0);
@@ -20,7 +30,7 @@ export function ThinkingState({ isThinking }: ThinkingStateProps) {
     if (isThinking) {
       const interval = setInterval(() => {
         setCurrentStep((prev) => (prev + 1) % THOUGHT_STEPS.length);
-      }, 2000); // 2s per step
+      }, 2000);
       return () => clearInterval(interval);
     } else {
       setCurrentStep(0);

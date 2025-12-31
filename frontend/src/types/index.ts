@@ -117,11 +117,17 @@ export interface WSMessageRequest {
   message: string;
 }
 
+export interface WSThought {
+  type: 'thought';
+  step: string;
+  details?: string;
+}
+
 export interface WSDisconnect {
   type: 'disconnect';
 }
 
-export type WSMessage = WSConnected | WSResponse | WSError | WSPong;
+export type WSMessage = WSConnected | WSResponse | WSThought | WSError | WSPong;
 export type WSRequest = WSMessageRequest | WSPing | WSDisconnect;
 
 // Business hours type

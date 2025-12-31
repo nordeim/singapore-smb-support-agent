@@ -33,7 +33,7 @@ export function EvidenceSheet({ source, isOpen, onClose }: EvidenceSheetProps) {
         <div className="p-6 space-y-4">
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">
-              File: {source.metadata?.file_name || 'Unknown'}
+              File: {String(source.metadata?.file_name || 'Unknown')}
             </div>
             <div className="text-sm text-muted-foreground">
               Confidence: {(source.score * 100).toFixed(1)}%

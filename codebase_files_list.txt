@@ -1,5 +1,5 @@
-$ find backend/pyproject.toml backend/alembic.ini backend/pytest.ini backend/Dockerfile backend/docker-compose.yml backend/app backend/data backend/scripts backend/tests/ -type f | grep -v '\.pyc$'
-$ find frontend/*json frontend/*js frontend/*ts frontend/Dockerfile frontend/src frontend/public -type f
+$ find backend/pyproject.toml backend/alembic.ini backend/pytest.ini backend/Dockerfile backend/docker-compose.yml backend/app backend/data backend/scripts backend/tests/ frontend/*json frontend/*js frontend/*ts frontend/Dockerfile frontend/src frontend/public -type f | grep -v '\.pyc$'
+backend/.env
 backend/pyproject.toml
 backend/alembic.ini
 backend/pytest.ini

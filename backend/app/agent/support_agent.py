@@ -44,19 +44,22 @@ class SupportAgent:
         rag_pipeline=None,
         memory_manager: Optional[MemoryManager] = None,
         db: Optional[AsyncSession] = None,
+        ws_manager=None,
     ):
         """
-        Initialize the support agent.
+        Initialize support agent.
 
         Args:
             rag_pipeline: RAG pipeline for knowledge retrieval
             memory_manager: Memory manager for session management
             db: Database session
+            ws_manager: WebSocket connection manager for real-time events
         """
         self.rag_pipeline = rag_pipeline
         self.memory_manager = memory_manager
         self.db = db
         self.validator = ResponseValidator()
+        self.ws_manager = ws_manager
 
     def _get_system_prompt(self, context: AgentContext) -> str:
         """Get formatted system prompt with context."""
@@ -91,21 +94,6 @@ class SupportAgent:
             business_hours_status=business_hours_status,
         )
 
-        working_memory = await self.memory_manager.get_working_memory(session_id)
-
-        from app.dependencies import BusinessContext
-
-        business_context = BusinessContext()
-        business_hours_status = "open" if business_context.is_business_hours() else "closed"
-
-        return AgentContext(
-            session_id=session_id,
-            user_id=user_id,
-            conversation_summary=working_memory.get("conversation_summary", ""),
-            recent_messages=working_memory.get("recent_messages", []),
-            business_hours_status=business_hours_status,
-        )
-
     async def process_message(
         self,
         message: str,
@@ -124,7 +112,11 @@ class SupportAgent:
             AgentResponse with generated response
         """
         try:
+            await self._emit_thought(session_id, "assembling_context")
+
             context = await self._assemble_context(session_id, user_id)
+
+            await self._emit_thought(session_id, "validating_input")
 
             validation_result = self.validator.validate_response(
                 text=message,
@@ -143,6 +135,7 @@ class SupportAgent:
             sources = []
 
             if self.rag_pipeline:
+                await self._emit_thought(session_id, "searching_knowledge")
                 from app.agent.tools.retrieve_knowledge import retrieve_knowledge
                 from app.config import settings
 
@@ -154,6 +147,10 @@ class SupportAgent:
 
                 if knowledge_result.success:
                     sources = knowledge_result.sources
+
+                await self._emit_thought(session_id, "knowledge_retrieved")
+
+            await self._emit_thought(session_id, "generating_response")
 
             response_text = self._generate_response(
                 query=message,
@@ -215,6 +212,18 @@ class SupportAgent:
                 ticket_id=None,
             )
 
+    async def _emit_thought(self, session_id: str, step: str, details: str = ""):
+        """Emit thought event via WebSocket if manager is available."""
+        if self.ws_manager:
+            await self.ws_manager.send_message(
+                session_id=session_id,
+                message={
+                    "type": "thought",
+                    "step": step,
+                    "details": details,
+                },
+            )
+
     def _generate_response(
         self,
         query: str,
@@ -268,10 +277,12 @@ async def get_support_agent(
     rag_pipeline=None,
     memory_manager: Optional[MemoryManager] = None,
     db: Optional[AsyncSession] = None,
+    ws_manager=None,
 ) -> SupportAgent:
     """Factory function to create support agent instance."""
     return SupportAgent(
         rag_pipeline=rag_pipeline,
         memory_manager=memory_manager,
         db=db,
+        ws_manager=ws_manager,
     )
