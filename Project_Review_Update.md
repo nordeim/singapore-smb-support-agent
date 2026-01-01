@@ -188,3 +188,114 @@ However, `ChatMessage` instances are only created **after** a message exists in 
 
 The system is 95% complete and architecturally superior to standard boilerplates. Fixing the **Database Commit** and **CSS Color Syntax** are the only barriers to a functional Release Candidate.
 
+---
+
+# Codebase Analysis Assessment Report
+
+**Project:** Singapore SMB Customer Support AI Agent
+**Version:** 1.0.0 (Implementation Audit)
+**Date:** January 1, 2026
+**Auditor:** Frontend Architect & Avant-Garde UI Designer
+
+---
+
+## 1. Executive Summary
+
+A forensic audit of the codebase confirms high architectural integrity, with strict backend modularity and a frontend structure prepared for the "Avant-Garde" aesthetic. However, **three critical logic errors**—validated against Python/SQLAlchemy execution flows and CSS specifications—currently block production readiness.
+
+While previous "Ghost WebSocket" and "RAG Type Mismatch" issues were resolved, the audit detected a **"Phantom Update" bug** in the database layer (effectively disabling data persistence for tickets) and an **"Invisible Color" bug** in the styling system (rendering trust indicators transparent).
+
+**Overall Status:** `ARCHITECTURALLY SOUND` with `CRITICAL BLOCKERS`.
+
+---
+
+## 2. Architecture Verification (Design vs. Actual)
+
+| Subsystem | Design Intent | Actual Implementation | Status |
+| :--- | :--- | :--- | :--- |
+| **RAG Retrieval** | Native Qdrant `query_points` for type safety. | **Verified.** `backend/app/rag/retriever.py` uses `client.query_points` directly. | ✅ |
+| **Real-time Comms** | Hybrid WebSocket + REST fallback. | **Verified.** `frontend/src/stores/chatStore.ts` implements connection logic; `lib/websocket.ts` handles heartbeats. | ✅ |
+| **Memory** | Hierarchical (Redis Session -> Postgres History). | **Verified.** `MemoryManager` orchestrates `ShortTermMemory` and `LongTermMemory` correctly. | ✅ |
+| **Frontend State** | Zustand store driving UI components. | **Verified.** Store logic handles `thought` events and message appending. | ✅ |
+| **Visuals** | "Avant-Garde" 2px radius, Manrope/Inter fonts. | **Verified.** `globals.css` and `tailwind.config.ts` reflect these choices (with one critical error). | ✅ |
+
+---
+
+## 3. Critical Code & Logic Errors ("The Kill List")
+
+These issues have been validated via external documentation research and code analysis. They are functional breaks that must be remediated immediately.
+
+### 🔴 1. The "Phantom Update" Bug (Backend)
+**File:** `backend/app/memory/long_term.py`
+**Method:** `update_ticket_status` (Lines ~186-193)
+
+**The Logic Error:**
+The code executes the `return` statement **before** committing the transaction to the database. In Python, code following a `return` statement is **unreachable** and never executes.
+*   *Validation:* SQLAlchemy documentation confirms that modifications to objects attached to a session are not persisted to the database until `session.commit()` is called.
+
+```python
+# ACTUAL CODE (BROKEN)
+if ticket:
+    ticket.status = status
+    # ... updates ...
+return ticket          # <--- RETURNS HERE. Execution stops.
+await self.db.commit() # <--- DEAD CODE. The transaction is never committed.
+```
+
+**Impact:** Support tickets will appear updated in the immediate API response (memory object is modified) but will revert to their old state in the database instantly. The escalation workflow is effectively broken.
+
+### 🔴 2. The "Invisible Color" Bug (Frontend)
+**File:** `frontend/src/app/globals.css` vs `frontend/tailwind.config.ts`
+
+**The Logic Error:**
+The Tailwind configuration uses the `hsl()` function, expecting variables to contain **Hue, Saturation%, and Lightness%**. However, the CSS variables contain **RGB-like values** without percentages.
+*   *Config:* `green: "hsl(var(--semantic-green))"`
+*   *CSS:* `--semantic-green: 142 211 142;`
+*   *Result:* `color: hsl(142 211 142);`
+
+**Validation:**
+1.  **Syntax:** Valid CSS `hsl()` requires percentages for Saturation and Lightness (e.g., `hsl(120 50% 50%)`).
+2.  **Values:** The values `142 211 142` strongly resemble an RGB triplet (Light Green). If interpreted as HSL, `211` and `142` are interpreted as values > 100%, which is invalid or clamped to white/pure color, often resulting in rendering failures.
+
+**Impact:** The "Trust Colors" (Green/Amber/Red) defined in `globals.css` are syntactically invalid. The `ConfidenceRing` and `SessionPulse` will likely render transparent or invisible, destroying the application's core trust mechanics.
+
+### 🟠 3. The "Thinking State" Displacement (Frontend UX)
+**File:** `frontend/src/components/chat/ChatMessage.tsx`
+
+**The Logic Error:**
+The `ThinkingState` component is rendered *inside* the `ChatMessage` component:
+```tsx
+{isThinking && <ThinkingState isThinking={true} />}
+```
+However, `ChatMessage` instances are only created **after** a message exists in the `messages` array. When the agent is "thinking" about a response, that response *does not yet exist* in the store. Therefore, the component designed to visualize the thinking process is placed inside a container that hasn't been rendered yet.
+
+**Impact:** The sophisticated "Scanning Knowledge Base..." visualization will never be seen by the user. It must be moved to `ChatMessages.tsx` (the container) to render *pending* the arrival of the new message.
+
+---
+
+## 4. Recommendations & Remediation Plan
+
+### Immediate Fixes (Priority 0)
+
+1.  **Fix Database Commit:**
+    *   **Action:** Move `await self.db.commit()` **before** `return ticket` in `backend/app/memory/long_term.py`.
+
+2.  **Fix CSS Variables:**
+    *   **Action:** Update `frontend/src/app/globals.css` to use valid HSL syntax with percentages.
+    *   *Correction:* `--semantic-green: 120 45% 69%;` (Converted from the intended RGB approx).
+
+3.  **Relocate Thinking State:**
+    *   **Action:** Remove `<ThinkingState />` from `ChatMessage.tsx`.
+    *   **Action:** Add `<ThinkingState isThinking={isThinking} />` to `frontend/src/components/chat/ChatMessages.tsx`, placing it dynamically at the bottom of the list when `isThinking` is true.
+
+### Refinement (Priority 1)
+
+4.  **Enforce Semantic Colors:**
+    *   **Action:** Update `ConfidenceRing.tsx` and `SessionPulse.tsx` to use `bg-trust-green` / `ring-trust-green` instead of `bg-green-500`. This ensures the specific "Singapore Professional" palette defined in CSS is actually used.
+
+5.  **Standardize LLM Config:**
+    *   **Action:** Synchronize `.env` and `config.py`. Decide on a single default model (`mistralai/devstral`) to prevent deployment confusion.
+
+### Conclusion
+
+The system is 95% complete and architecturally superior to standard boilerplates. Fixing the **Database Commit** and **CSS Color Syntax** are the only barriers to a functional Release Candidate.
