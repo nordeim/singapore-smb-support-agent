@@ -1,16 +1,17 @@
 """Ingestion pipeline orchestrator for document processing."""
 
-from typing import List, Optional, Literal
-from pathlib import Path
 import asyncio
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
 
-from app.ingestion.parsers.markitdown_parser import DocumentParser
-from app.ingestion.chunkers.chunker import SemanticChunker, RecursiveChunker
-from app.ingestion.embedders.embedding import EmbeddingGenerator
-from app.rag.qdrant_client import QdrantManager
-from app.config import settings
 from qdrant_client.http.models import PointStruct
+
+from app.config import settings
+from app.ingestion.chunkers.chunker import RecursiveChunker, SemanticChunker
+from app.ingestion.embedders.embedding import EmbeddingGenerator
+from app.ingestion.parsers.markitdown_parser import DocumentParser
+from app.rag.qdrant_client import QdrantManager
 
 
 def get_embedding_generator(use_mock: bool = False):
@@ -31,7 +32,7 @@ class IngestionResult:
         successful: int = 0,
         failed: int = 0,
         total_chunks: int = 0,
-        errors: Optional[List[str]] = None,
+        errors: list[str] | None = None,
     ):
         self.total_documents = total_documents
         self.successful = successful
@@ -88,7 +89,7 @@ class IngestionPipeline:
     async def ingest_document(
         self,
         file_path: str,
-        additional_metadata: Optional[dict] = None,
+        additional_metadata: dict | None = None,
     ) -> dict:
         """
         Ingest a single document.
@@ -156,9 +157,9 @@ class IngestionPipeline:
 
     async def ingest_batch(
         self,
-        file_paths: List[str],
+        file_paths: list[str],
         batch_size: int = 10,
-        additional_metadata: Optional[dict] = None,
+        additional_metadata: dict | None = None,
     ) -> IngestionResult:
         """
         Ingest multiple documents in batches.
@@ -203,8 +204,8 @@ class IngestionPipeline:
         directory_path: str,
         recursive: bool = False,
         batch_size: int = 10,
-        file_extensions: Optional[List[str]] = None,
-        additional_metadata: Optional[dict] = None,
+        file_extensions: list[str] | None = None,
+        additional_metadata: dict | None = None,
     ) -> IngestionResult:
         """
         Ingest all documents from a directory.
@@ -253,11 +254,11 @@ class IngestionPipeline:
 
     def _create_qdrant_points(
         self,
-        chunks: List[str],
-        embeddings: List[List[float]],
+        chunks: list[str],
+        embeddings: list[list[float]],
         file_metadata: dict,
-        additional_metadata: Optional[dict] = None,
-    ) -> List[PointStruct]:
+        additional_metadata: dict | None = None,
+    ) -> list[PointStruct]:
         """
         Create Qdrant points from chunks and embeddings.
 

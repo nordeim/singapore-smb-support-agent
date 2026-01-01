@@ -1,7 +1,7 @@
 """Get customer info tool for Singapore SMB Support Agent."""
 
-from typing import Optional
 from datetime import datetime
+
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,8 +30,8 @@ class GetCustomerInfoOutput(BaseModel):
     """Output for get_customer_info tool."""
 
     success: bool = Field(..., description="Whether lookup was successful")
-    customer: Optional[CustomerInfo] = Field(None, description="Customer information")
-    message: Optional[str] = Field(None, description="Additional information")
+    customer: CustomerInfo | None = Field(None, description="Customer information")
+    message: str | None = Field(None, description="Additional information")
 
 
 async def get_customer_info(
@@ -54,7 +54,7 @@ async def get_customer_info(
         from app.models.database import User
 
         query = select(User).where(
-            (User.email == customer_identifier) & (User.is_deleted == False)
+            (User.email == customer_identifier) & (not User.is_deleted)
         )
 
         result = await db.execute(query)

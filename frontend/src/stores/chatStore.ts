@@ -117,7 +117,7 @@ export const useChatStore = create<ChatStore>()(
           return;
         }
 
-        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/chat/ws';
         console.log(`[WebSocket] Attempting connection to: ${wsUrl}?session_id=${sessionId}`);
 
         const wsClient = new WebSocketClient({

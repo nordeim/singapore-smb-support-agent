@@ -1,12 +1,11 @@
 """Main RAG pipeline orchestrator."""
 
-from typing import List, Optional
-from app.rag.query_transform import QueryTransformer
-from app.rag.retriever import HybridRetriever
-from app.rag.reranker import BGEReranker
-from app.rag.context_compress import ContextCompressor
-from app.models.domain import MessageRole
+
 from app.config import settings
+from app.rag.context_compress import ContextCompressor
+from app.rag.query_transform import QueryTransformer
+from app.rag.reranker import BGEReranker
+from app.rag.retriever import HybridRetriever
 
 
 class RAGPipeline:
@@ -23,7 +22,7 @@ class RAGPipeline:
         self,
         query: str,
         session_id: str,
-        conversation_history: List[dict],
+        conversation_history: list[dict],
     ) -> dict:
         """Execute full RAG pipeline."""
         transform_result = await self.query_transformer.transform(query)
@@ -60,7 +59,7 @@ class RAGPipeline:
     async def retrieve_context(
         self,
         query: str,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ) -> str:
         """Simple retrieval for context without full pipeline."""
         docs = await self.reranker.async_rerank(

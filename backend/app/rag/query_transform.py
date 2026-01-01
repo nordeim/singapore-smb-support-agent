@@ -1,7 +1,8 @@
 """Query transformation using LangChain LLM."""
 
-from typing import Optional
+
 from langchain_openai import ChatOpenAI
+
 from app.config import settings
 
 
@@ -64,7 +65,7 @@ Language (en, zh, ms, ta):
         detected = response.content.strip().lower()
         return detected if detected in ["en", "zh", "ms", "ta"] else "en"
 
-    async def decompose_query(self, query: str) -> Optional[list[str]]:
+    async def decompose_query(self, query: str) -> list[str] | None:
         """Decompose complex queries into sub-queries."""
         intent = await self.classify_intent(query)
 

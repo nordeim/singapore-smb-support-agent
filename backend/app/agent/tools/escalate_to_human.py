@@ -1,6 +1,6 @@
 """Escalate to human tool for Singapore SMB Support Agent."""
 
-from typing import Optional
+
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ class EscalateToHumanInput(BaseModel):
         description="Urgency level: low, normal, high, critical",
     )
     session_id: str = Field(..., description="Session identifier")
-    user_id: Optional[int] = Field(None, description="User ID (optional)")
+    user_id: int | None = Field(None, description="User ID (optional)")
 
 
 class EscalationTicket(BaseModel):
@@ -24,7 +24,7 @@ class EscalationTicket(BaseModel):
     ticket_id: str
     reason: str
     status: str
-    assigned_to: Optional[str]
+    assigned_to: str | None
     estimated_response_time: str
 
 
@@ -32,7 +32,7 @@ class EscalateToHumanOutput(BaseModel):
     """Output for escalate_to_human tool."""
 
     success: bool = Field(..., description="Whether escalation was successful")
-    ticket: Optional[EscalationTicket] = Field(None, description="Ticket information")
+    ticket: EscalationTicket | None = Field(None, description="Ticket information")
     message: str = Field(..., description="Human-readable message")
 
 
@@ -40,8 +40,8 @@ async def escalate_to_human(
     reason: str,
     urgency: str = "normal",
     session_id: str = "",
-    user_id: Optional[int] = None,
-    db: Optional[AsyncSession] = None,
+    user_id: int | None = None,
+    db: AsyncSession | None = None,
 ) -> EscalateToHumanOutput:
     """
     Create a support ticket and escalate to human agent.
@@ -57,8 +57,9 @@ async def escalate_to_human(
         EscalateToHumanOutput with ticket information
     """
     try:
-        from app.models.database import Conversation, SupportTicket
         from datetime import datetime
+
+        from app.models.database import Conversation, SupportTicket
 
         ticket_id = f"T{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
 
@@ -114,7 +115,7 @@ async def escalate_to_human(
         )
 
 
-def get_escalate_to_human_tool(db: Optional[AsyncSession] = None):
+def get_escalate_to_human_tool(db: AsyncSession | None = None):
     """Factory function to create escalate_to_human tool for Pydantic AI."""
     from pydantic_ai import Tool
 
@@ -122,7 +123,7 @@ def get_escalate_to_human_tool(db: Optional[AsyncSession] = None):
         reason: str,
         urgency: str = "normal",
         session_id: str = "",
-        user_id: Optional[int] = None,
+        user_id: int | None = None,
     ) -> dict:
         result = await escalate_to_human(
             reason=reason,

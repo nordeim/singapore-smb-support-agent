@@ -1,6 +1,7 @@
 """Conversation summarizer using LLM via OpenRouter."""
 
 from langchain_openai import ChatOpenAI
+
 from app.config import settings
 
 

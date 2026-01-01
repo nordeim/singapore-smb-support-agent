@@ -1,14 +1,15 @@
 """Redis configuration and session management."""
 
-from typing import Optional
+
 import redis.asyncio as redis
+
 from app.config import settings
 
 
 class RedisManager:
     """Redis connection manager."""
 
-    _instance: Optional[redis.Redis] = None
+    _instance: redis.Redis | None = None
 
     @classmethod
     def get_client(cls) -> redis.Redis:
@@ -39,7 +40,7 @@ class ShortTermMemory:
     SESSION_TTL = settings.PDPA_SESSION_TTL_MINUTES * 60
 
     @staticmethod
-    async def get_session(session_id: str) -> Optional[dict]:
+    async def get_session(session_id: str) -> dict | None:
         """Retrieve session data from Redis."""
         key = f"{ShortTermMemory.SESSION_PREFIX}{session_id}"
         return await redis_client.get(key)
@@ -56,7 +57,6 @@ class ShortTermMemory:
     @staticmethod
     async def add_message(session_id: str, message: dict) -> None:
         """Add message to session in Redis."""
-        import json
 
         session_data = await ShortTermMemory.get_session(session_id)
         if session_data is None:

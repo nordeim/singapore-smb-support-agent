@@ -1,21 +1,20 @@
 """Chat API routes with WebSocket support for Singapore SMB Support Agent."""
 
-from typing import Optional
+
 from fastapi import (
     APIRouter,
-    WebSocket,
-    WebSocketDisconnect,
     Depends,
     HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
     status,
 )
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_memory_manager, get_session_data
+from app.agent.support_agent import get_support_agent
+from app.dependencies import get_db, get_memory_manager
 from app.models.schemas import ChatRequest, ChatResponse, SourceCitation
-from app.agent.support_agent import SupportAgent, get_support_agent
-
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 security = HTTPBearer(auto_error=False)
@@ -55,7 +54,7 @@ async def chat(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db),
     memory_manager=Depends(get_memory_manager),
-    token: Optional[str] = Depends(security),
+    token: str | None = Depends(security),
 ):
     """
     Process a chat message using the support agent.
@@ -232,7 +231,7 @@ async def websocket_chat(
 async def get_session(
     session_id: str,
     memory_manager=Depends(get_memory_manager),
-    token: Optional[str] = Depends(security),
+    token: str | None = Depends(security),
 ):
     """
     Get session information.

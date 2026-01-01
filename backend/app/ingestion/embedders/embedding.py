@@ -1,7 +1,8 @@
 """Embedding generation for vector storage."""
 
-from typing import List
+
 from openai import AsyncOpenAI
+
 from app.config import settings
 
 
@@ -17,7 +18,7 @@ class EmbeddingGenerator:
         self.model = settings.EMBEDDING_MODEL
         self.dimension = settings.EMBEDDING_DIMENSION
 
-    async def generate(self, texts: List[str]) -> List[List[float]]:
+    async def generate(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts."""
         response = await self.client.embeddings.create(
             model=self.model,
@@ -26,7 +27,7 @@ class EmbeddingGenerator:
 
         return [item.embedding for item in response.data]
 
-    async def generate_single(self, text: str) -> List[float]:
+    async def generate_single(self, text: str) -> list[float]:
         """Generate embedding for a single text."""
         result = await self.generate([text])
         return result[0]

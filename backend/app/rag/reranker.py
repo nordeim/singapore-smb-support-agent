@@ -1,8 +1,8 @@
 """Cross-encoder reranker using HuggingFace."""
 
-from typing import List
-from sentence_transformers import CrossEncoder
+
 import torch
+from sentence_transformers import CrossEncoder
 
 
 class BGEReranker:
@@ -17,9 +17,9 @@ class BGEReranker:
     def rerank(
         self,
         query: str,
-        documents: List[dict],
+        documents: list[dict],
         top_k: int = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Rerank documents using cross-encoder scoring."""
         if top_k is None:
             top_k = self.top_n
@@ -44,8 +44,8 @@ class BGEReranker:
     async def async_rerank(
         self,
         query: str,
-        documents: List[dict],
+        documents: list[dict],
         top_k: int = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Async wrapper for reranking."""
         return self.rerank(query, documents, top_k)

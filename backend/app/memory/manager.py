@@ -1,11 +1,9 @@
 """Memory manager orchestrating short-term, long-term, and summarization."""
 
-from typing import Optional
 
-from app.memory.short_term import ShortTermMemory
 from app.memory.long_term import LongTermMemory
+from app.memory.short_term import ShortTermMemory
 from app.memory.summarizer import ConversationSummarizer
-from app.config import settings
 
 
 class MemoryManager:
@@ -19,7 +17,7 @@ class MemoryManager:
         self.long_term = LongTermMemory(db_session)
         self.summarizer = ConversationSummarizer()
 
-    async def get_session(self, session_id: str) -> Optional[dict]:
+    async def get_session(self, session_id: str) -> dict | None:
         """Get session from short-term memory."""
         return await self.short_term.get_session(session_id)
 
@@ -97,8 +95,8 @@ class MemoryManager:
         conversation_id: int,
         role: str,
         content: str,
-        confidence: Optional[float] = None,
-        sources: Optional[str] = None,
+        confidence: float | None = None,
+        sources: str | None = None,
     ) -> dict:
         """Save message to both short-term and long-term memory."""
         from datetime import datetime

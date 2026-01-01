@@ -1,14 +1,14 @@
 """Check business hours tool for Singapore SMB Support Agent."""
 
-from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
 class BusinessHoursInput(BaseModel):
     """Input for check_business_hours tool."""
 
-    date: Optional[str] = Field(
+    date: str | None = Field(
         None, description="Optional date string (YYYY-MM-DD). Defaults to today."
     )
     check_holiday: bool = Field(
@@ -26,7 +26,7 @@ class BusinessHoursInfo(BaseModel):
     business_start: str
     business_end: str
     timezone: str
-    holiday_name: Optional[str] = None
+    holiday_name: str | None = None
 
 
 class CheckBusinessHoursOutput(BaseModel):
@@ -55,7 +55,7 @@ SINGAPORE_PUBLIC_HOLIDAYS_2025 = [
 
 
 async def check_business_hours(
-    date: Optional[str] = None,
+    date: str | None = None,
     check_holiday: bool = True,
     business_start: str = "09:00",
     business_end: str = "18:00",
@@ -167,7 +167,7 @@ def get_check_business_hours_tool(
     from pydantic_ai import Tool
 
     async def tool_wrapper(
-        date: Optional[str] = None,
+        date: str | None = None,
         check_holiday: bool = True,
     ) -> dict:
         result = await check_business_hours(

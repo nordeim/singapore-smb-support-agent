@@ -2,17 +2,18 @@
 
 from contextlib import asynccontextmanager
 from datetime import datetime
+
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.routes import auth, chat
 from app.config import settings
-from app.api.routes import chat, auth
-from app.models.schemas import HealthCheckResponse, ErrorResponse
 from app.dependencies import engine
 from app.models.database import Base
+from app.models.schemas import ErrorResponse, HealthCheckResponse
 
 
 @asynccontextmanager

@@ -1,15 +1,13 @@
 """FastAPI dependency injection functions for Singapore SMB Support Agent."""
 
-from typing import AsyncGenerator, Optional
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.models.database import Base
 from app.memory.manager import MemoryManager
-
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -59,7 +57,7 @@ class BusinessContext:
 
     def get_current_time(self) -> datetime:
         """Get current time in Singapore timezone."""
-        return datetime.now(timezone.utc).astimezone()
+        return datetime.now(UTC).astimezone()
 
     def is_business_hours(self) -> bool:
         """Check if current time is within business hours."""
@@ -93,12 +91,12 @@ async def get_current_user_mvp(
 ) -> dict:
     """MVP user dependency using session ID instead of JWT token."""
     from sqlalchemy import text
-    from app.models.database import User, Conversation
+
 
     result = await db.execute(
-        text("""SELECT u.id, u.email, u.is_active, u.data_retention_days 
-               FROM users u 
-               JOIN conversations c ON u.id = c.user_id 
+        text("""SELECT u.id, u.email, u.is_active, u.data_retention_days
+               FROM users u
+               JOIN conversations c ON u.id = c.user_id
                WHERE c.session_id = :session_id AND u.is_active = TRUE"""),
         {"session_id": session_id},
     )

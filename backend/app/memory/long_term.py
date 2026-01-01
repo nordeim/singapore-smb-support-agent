@@ -1,16 +1,16 @@
 """Long-term memory using PostgreSQL with SQLAlchemy async."""
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import select, func
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.database import (
-    Base,
-    User,
     Conversation,
-    Message,
     ConversationSummary,
+    Message,
     SupportTicket,
+    User,
 )
 
 
@@ -46,13 +46,13 @@ class LongTermMemory:
         await self.db.refresh(user)
         return user
 
-    async def get_user_by_email(self, email: str) -> Optional[User]:
+    async def get_user_by_email(self, email: str) -> User | None:
         """Get user by email."""
         result = await self.db.execute(
             select(User)
             .where(User.email == email)
-            .where(User.is_active == True)
-            .where(User.is_deleted == False)
+            .where(User.is_active)
+            .where(not User.is_deleted)
         )
         return result.scalar_one_or_none()
 
@@ -77,12 +77,12 @@ class LongTermMemory:
         await self.db.refresh(conversation)
         return conversation
 
-    async def get_conversation_by_session_id(self, session_id: str) -> Optional[Conversation]:
+    async def get_conversation_by_session_id(self, session_id: str) -> Conversation | None:
         """Get conversation by session ID."""
         result = await self.db.execute(
             select(Conversation)
             .where(Conversation.session_id == session_id)
-            .where(Conversation.is_active == True)
+            .where(Conversation.is_active)
         )
         return result.scalar_one_or_none()
 
@@ -91,8 +91,8 @@ class LongTermMemory:
         conversation_id: int,
         role: str,
         content: str,
-        confidence: Optional[float] = None,
-        sources: Optional[str] = None,
+        confidence: float | None = None,
+        sources: str | None = None,
     ) -> Message:
         """Add a message to conversation."""
         message = Message(
@@ -130,8 +130,8 @@ class LongTermMemory:
         summary: str,
         message_range_start: int,
         message_range_end: int,
-        embedding_vector: Optional[str] = None,
-        metadata: Optional[str] = None,
+        embedding_vector: str | None = None,
+        metadata: str | None = None,
     ) -> ConversationSummary:
         """Save conversation summary."""
         conv_summary = ConversationSummary(
@@ -192,8 +192,8 @@ class LongTermMemory:
         self,
         ticket_id: int,
         status: str,
-        assigned_to: Optional[str] = None,
-    ) -> Optional[SupportTicket]:
+        assigned_to: str | None = None,
+    ) -> SupportTicket | None:
         """Update ticket status."""
         result = await self.db.execute(select(SupportTicket).where(SupportTicket.id == ticket_id))
         ticket = result.scalar_one_or_none()
@@ -219,7 +219,7 @@ class LongTermMemory:
         result = await self.db.execute(
             select(func.count(Conversation.id))
             .where(Conversation.user_id == user_id)
-            .where(Conversation.is_active == True)
+            .where(Conversation.is_active)
         )
         count = result.scalar()
         return count if count is not None else 0

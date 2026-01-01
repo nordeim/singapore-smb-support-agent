@@ -1,6 +1,5 @@
 """Response templates for Singapore SMB Support Agent."""
 
-from typing import Optional
 
 
 class ResponseTemplates:
@@ -55,7 +54,7 @@ class ResponseTemplates:
         return "Thank you for your patience. I'm glad I could help!"
 
     @staticmethod
-    def customer_info_found(name: Optional[str] = None) -> str:
+    def customer_info_found(name: str | None = None) -> str:
         if name:
             return f"I found your account, {name}. How can I assist you today?"
         return "I found your account. How can I assist you today?"
@@ -133,7 +132,7 @@ Just ask me anything, and I'll do my best to assist you!"""
         return f"{feature} is not currently available. Let me connect you with a human agent to discuss alternatives or timeline."
 
 
-def get_template(name: str, **kwargs) -> Optional[str]:
+def get_template(name: str, **kwargs) -> str | None:
     """Get a response template by name."""
     template_method = getattr(ResponseTemplates, name, None)
     if template_method and callable(template_method):

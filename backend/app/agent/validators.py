@@ -1,8 +1,8 @@
 """Validators for Singapore SMB Support Agent responses."""
 
-from typing import Literal, Optional
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel, Field
 
 
 class Sentiment(str, Enum):
@@ -32,7 +32,7 @@ class ValidationResult(BaseModel):
     pdpa_compliance: PDPACompliance
     requires_escalation: bool
     requires_followup: bool
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class ResponseValidator:
@@ -122,7 +122,7 @@ class ResponseValidator:
 
     @staticmethod
     def check_pdpa_compliance(
-        text: str, context: Optional[dict] = None
+        text: str, context: dict | None = None
     ) -> PDPACompliance:
         """
         Check PDPA compliance for response.
@@ -189,7 +189,7 @@ class ResponseValidator:
         cls,
         text: str,
         confidence: float = 0.7,
-        context: Optional[dict] = None,
+        context: dict | None = None,
         confidence_threshold: float = 0.5,
     ) -> ValidationResult:
         """

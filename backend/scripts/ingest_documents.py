@@ -1,12 +1,10 @@
 """CLI tool for document ingestion into Qdrant vector database."""
 
-import asyncio
 import argparse
+import asyncio
 import json
-from pathlib import Path
-import sys
 import os
-from typing import Optional
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -108,7 +106,7 @@ Examples:
     return parser.parse_args()
 
 
-def parse_metadata(metadata_str: str) -> Optional[dict]:
+def parse_metadata(metadata_str: str) -> dict | None:
     """Parse metadata JSON string."""
     if not metadata_str:
         return None
@@ -179,13 +177,13 @@ async def ingest_directory(
     pipeline: IngestionPipeline,
     recursive: bool,
     batch_size: int,
-    file_extensions: Optional[list[str]] = None,
+    file_extensions: list[str] | None = None,
     verbose: bool = False,
 ) -> IngestionResult:
     """Ingest all documents from a directory."""
     print(f"\nProcessing directory: {directory_path}")
     if recursive:
-        print(f"Recursive scan: enabled")
+        print("Recursive scan: enabled")
     print("=" * 80)
 
     result = await pipeline.ingest_directory(
@@ -239,7 +237,7 @@ async def main():
         QdrantManager.initialize_collections()
         print("Collections initialized.")
 
-    additional_metadata = parse_metadata(args.metadata)
+    parse_metadata(args.metadata)
 
     pipeline = IngestionPipeline(
         chunk_strategy=args.chunk_strategy,
@@ -284,7 +282,7 @@ async def main():
                 )
 
         elif args.input_dir:
-            file_extensions: Optional[list[str]] = None
+            file_extensions: list[str] | None = None
             if args.file_extensions:
                 file_extensions = [ext.strip() for ext in args.file_extensions.split(",")]
 

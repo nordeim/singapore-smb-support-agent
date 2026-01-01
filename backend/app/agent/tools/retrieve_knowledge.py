@@ -1,6 +1,6 @@
 """Retrieve knowledge tool for Singapore SMB Support Agent."""
 
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -18,7 +18,7 @@ class RetrieveKnowledgeOutput(BaseModel):
     knowledge: str = Field(..., description="Retrieved knowledge text")
     sources: list[dict] = Field(default_factory=list, description="Source citations")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
-    message: Optional[str] = Field(None, description="Additional information")
+    message: str | None = Field(None, description="Additional information")
 
 
 async def retrieve_knowledge(

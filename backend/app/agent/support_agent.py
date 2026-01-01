@@ -1,12 +1,13 @@
 """Main Singapore SMB Support Agent using Pydantic AI."""
 
-from typing import Optional
+
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.prompts.system import RESPONSE_GENERATION_PROMPT, SYSTEM_PROMPT
+from app.agent.validators import ResponseValidator
 from app.config import settings
-from app.agent.prompts.system import SYSTEM_PROMPT
-from app.agent.validators import ResponseValidator, ValidationResult
 from app.memory.manager import MemoryManager
 
 
@@ -14,7 +15,7 @@ class AgentContext(BaseModel):
     """Context for agent operations."""
 
     session_id: str = Field(..., description="Session identifier")
-    user_id: Optional[int] = Field(None, description="User ID")
+    user_id: int | None = Field(None, description="User ID")
     conversation_summary: str = Field(default="", description="Conversation summary")
     recent_messages: list[dict] = Field(default_factory=list, description="Recent messages")
     business_hours_status: str = Field(..., description="Current business hours status")
@@ -28,7 +29,7 @@ class AgentResponse(BaseModel):
     sources: list[dict] = Field(default_factory=list, description="Source citations")
     escalated: bool = Field(default=False, description="Whether escalated to human")
     requires_followup: bool = Field(default=False, description="Whether followup needed")
-    ticket_id: Optional[str] = Field(None, description="Support ticket ID if created")
+    ticket_id: str | None = Field(None, description="Support ticket ID if created")
 
 
 class SupportAgent:
@@ -42,8 +43,8 @@ class SupportAgent:
     def __init__(
         self,
         rag_pipeline=None,
-        memory_manager: Optional[MemoryManager] = None,
-        db: Optional[AsyncSession] = None,
+        memory_manager: MemoryManager | None = None,
+        db: AsyncSession | None = None,
         ws_manager=None,
     ):
         """
@@ -69,7 +70,7 @@ class SupportAgent:
         )
 
     async def _assemble_context(
-        self, session_id: str, user_id: Optional[int] = None
+        self, session_id: str, user_id: int | None = None
     ) -> AgentContext:
         """Assemble agent context from memory."""
         if not self.memory_manager:
@@ -98,7 +99,7 @@ class SupportAgent:
         self,
         message: str,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: int | None = None,
     ) -> AgentResponse:
         """
         Process a user message and generate a response.
@@ -137,7 +138,6 @@ class SupportAgent:
             if self.rag_pipeline:
                 await self._emit_thought(session_id, "searching_knowledge")
                 from app.agent.tools.retrieve_knowledge import retrieve_knowledge
-                from app.config import settings
 
                 knowledge_result = await retrieve_knowledge(
                     query=message,
@@ -204,7 +204,7 @@ class SupportAgent:
                 ticket_id=None,
             )
 
-        except Exception as e:
+        except Exception:
             return AgentResponse(
                 message="I apologize, but I'm experiencing a technical issue. Let me connect you with a human agent.",
                 confidence=0.0,
@@ -230,15 +230,46 @@ class SupportAgent:
         knowledge: str,
         context: AgentContext,
     ) -> str:
-        """Generate response using system prompt and knowledge."""
-        if knowledge:
-            return f"""Based on our knowledge base, here's what I can help you with:
+        """Generate response using LLM with retrieved knowledge and context."""
+        try:
+            llm = ChatOpenAI(
+                model=settings.LLM_MODEL_PRIMARY,
+                temperature=settings.LLM_TEMPERATURE,
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url=settings.OPENROUTER_BASE_URL,
+            )
+
+            recent_messages_str = "\n".join(
+                [
+                    f"{msg.get('role', 'unknown')}: {msg.get('content', '')}"
+                    for msg in context.recent_messages[-5:]
+                ]
+            )
+
+            prompt = RESPONSE_GENERATION_PROMPT.format(
+                query=query,
+                knowledge=knowledge
+                if knowledge
+                else "No relevant information found in knowledge base.",
+                conversation_summary=context.conversation_summary,
+                recent_messages=recent_messages_str,
+            )
+
+            response = llm.invoke(prompt)
+            if hasattr(response, "content"):
+                return str(response.content)
+            return str(response)
+
+        except Exception as e:
+            print(f"LLM generation error: {e}")
+            if knowledge:
+                return f"""Based on our knowledge base, here's what I can help you with:
 
 {knowledge}
 
 Is there anything else you'd like to know?"""
-        else:
-            return """I couldn't find specific information about your inquiry in my knowledge base. 
+            else:
+                return """I couldn't find specific information about your inquiry in my knowledge base.
 
 Could you provide more details or would you like me to connect you with a human agent who can assist you better?"""
 
@@ -247,7 +278,7 @@ Could you provide more details or would you like me to connect you with a human 
         message: str,
         reason: str,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: int | None = None,
     ) -> AgentResponse:
         """Escalate message to human support."""
         from app.agent.tools.escalate_to_human import escalate_to_human
@@ -275,8 +306,8 @@ Could you provide more details or would you like me to connect you with a human 
 
 async def get_support_agent(
     rag_pipeline=None,
-    memory_manager: Optional[MemoryManager] = None,
-    db: Optional[AsyncSession] = None,
+    memory_manager: MemoryManager | None = None,
+    db: AsyncSession | None = None,
     ws_manager=None,
 ) -> SupportAgent:
     """Factory function to create support agent instance."""

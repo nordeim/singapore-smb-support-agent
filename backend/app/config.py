@@ -1,6 +1,6 @@
 """Application configuration using Pydantic Settings."""
 
-from typing import Optional
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = Field(
         default="https://openrouter.ai/api/v1", description="OpenRouter API base URL"
     )
-    OPENAI_API_KEY: Optional[str] = Field(
+    OPENAI_API_KEY: str | None = Field(
         default=None, description="OpenAI API key (optional)"
     )
 

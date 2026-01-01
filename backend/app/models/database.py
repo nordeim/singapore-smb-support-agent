@@ -1,9 +1,10 @@
 """SQLAlchemy database models for Singapore SMB Support Agent."""
 
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String, Text, Float, Integer, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(AsyncAttrs, DeclarativeBase):

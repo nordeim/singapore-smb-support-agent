@@ -1,8 +1,8 @@
 """API Pydantic schemas for Singapore SMB Support Agent."""
 
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegisterRequest(BaseModel):
@@ -47,10 +47,10 @@ class ChatResponse(BaseModel):
     message: str
     role: str = "assistant"
     confidence: float = Field(..., ge=0.0, le=1.0)
-    sources: List[SourceCitation] = Field(default_factory=list)
+    sources: list[SourceCitation] = Field(default_factory=list)
     requires_followup: bool = False
     escalated: bool = False
-    ticket_id: Optional[str] = None
+    ticket_id: str | None = None
 
 
 class HealthCheckResponse(BaseModel):
@@ -61,7 +61,7 @@ class HealthCheckResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
-    error_code: Optional[str] = None
+    error_code: str | None = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -70,11 +70,11 @@ class SupportResponse(BaseModel):
 
     message: str = Field(..., description="Response message")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
-    sources: List[SourceCitation] = Field(
+    sources: list[SourceCitation] = Field(
         default_factory=list, description="Source citations"
     )
     escalated: bool = Field(default=False, description="Whether escalated to human")
     requires_followup: bool = Field(
         default=False, description="Whether followup needed"
     )
-    ticket_id: Optional[str] = Field(None, description="Support ticket ID if created")
+    ticket_id: str | None = Field(None, description="Support ticket ID if created")

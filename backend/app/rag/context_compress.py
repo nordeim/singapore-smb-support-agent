@@ -1,6 +1,5 @@
 """Context compression for working memory management."""
 
-from typing import List, Optional
 from app.config import settings
 
 
@@ -16,7 +15,7 @@ class ContextCompressor:
 
     def compress(
         self,
-        documents: List[str],
+        documents: list[str],
         query: str = "",
     ) -> dict:
         """Compress documents within token budget using extractive compression."""
@@ -42,12 +41,12 @@ class ContextCompressor:
             "tokens_budget": self.token_budget,
         }
 
-    def _estimate_tokens(self, texts: List[str]) -> int:
+    def _estimate_tokens(self, texts: list[str]) -> int:
         """Estimate token count (rough approximation: 4 chars per token)."""
         total_chars = sum(len(text) for text in texts)
         return total_chars // 4
 
-    def _sort_by_relevance(self, documents: List[str], query: str) -> List[str]:
+    def _sort_by_relevance(self, documents: list[str], query: str) -> list[str]:
         """Sort documents by relevance to query (keyword matching)."""
         if not query:
             return documents
@@ -64,9 +63,9 @@ class ContextCompressor:
 
     def _extractive_compression(
         self,
-        documents: List[str],
+        documents: list[str],
         max_tokens: int,
-    ) -> List[str]:
+    ) -> list[str]:
         """Extractive compression to keep most relevant content."""
         compressed = []
         current_tokens = 0
@@ -85,7 +84,7 @@ class ContextCompressor:
 
         return compressed
 
-    def _extract_key_sentences(self, text: str, max_sentences: int = 3) -> List[str]:
+    def _extract_key_sentences(self, text: str, max_sentences: int = 3) -> list[str]:
         """Extract key sentences from document."""
         import re
 

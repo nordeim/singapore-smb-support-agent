@@ -1,22 +1,21 @@
 """Authentication API routes for Singapore SMB Support Agent (MVP - Session-based)."""
 
-from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_memory_manager
-from app.models.schemas import (
-    UserRegisterRequest,
-    UserLoginRequest,
-    UserResponse,
-    TokenResponse,
-)
-from app.models.database import User, Conversation
 from app.config import settings
-
+from app.dependencies import get_db, get_memory_manager
+from app.models.database import Conversation, User
+from app.models.schemas import (
+    TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
@@ -102,8 +101,9 @@ async def login(
         TokenResponse with session token
     """
     try:
-        from passlib.context import CryptContext
         from uuid import uuid4
+
+        from passlib.context import CryptContext
 
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -214,8 +214,8 @@ async def get_current_user(
 
         result = await db.execute(
             text("""SELECT u.id, u.email, u.is_active, u.created_at
-                   FROM users u 
-                   JOIN conversations c ON u.id = c.user_id 
+                   FROM users u
+                   JOIN conversations c ON u.id = c.user_id
                    WHERE c.session_id = :session_id AND u.is_active = TRUE"""),
             {"session_id": session_id},
         )
@@ -245,7 +245,7 @@ async def get_current_user(
 
 @router.post("/session/new")
 async def create_new_session(
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     memory_manager=Depends(get_memory_manager),
 ):

@@ -1,8 +1,7 @@
 """Text chunking strategies for RAG."""
 
-from typing import List, Optional
-from sentence_transformers import SentenceTransformer
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
 
 class SemanticChunker:
@@ -19,7 +18,7 @@ class SemanticChunker:
         self.chunk_size = chunk_size
         self.similarity_threshold = similarity_threshold
 
-    def chunk(self, text: str) -> List[str]:
+    def chunk(self, text: str) -> list[str]:
         """Chunk text based on semantic boundaries."""
         sentences = self._split_sentences(text)
 
@@ -45,7 +44,7 @@ class SemanticChunker:
 
         return chunks
 
-    def _split_sentences(self, text: str) -> List[str]:
+    def _split_sentences(self, text: str) -> list[str]:
         """Split text into sentences."""
         import re
 
@@ -64,18 +63,18 @@ class RecursiveChunker:
         self,
         chunk_size: int = 500,
         chunk_overlap: int = 100,
-        separators: List[str] = ["\n\n", "\n", ". ", " ", ""],
+        separators: list[str] = ["\n\n", "\n", ". ", " ", ""],
     ):
         """Initialize recursive chunker."""
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.separators = separators
 
-    def chunk(self, text: str) -> List[str]:
+    def chunk(self, text: str) -> list[str]:
         """Recursively chunk text."""
         return self._recursive_split(text, self.separators)
 
-    def _recursive_split(self, text: str, separators: List[str]) -> List[str]:
+    def _recursive_split(self, text: str, separators: list[str]) -> list[str]:
         """Recursively split text using separators."""
         separator = separators[0]
 
@@ -102,7 +101,7 @@ class RecursiveChunker:
 
         return chunks
 
-    def _split_text(self, text: str, separator: str) -> List[str]:
+    def _split_text(self, text: str, separator: str) -> list[str]:
         """Split text into chunks with overlap."""
         chunks = []
         start = 0

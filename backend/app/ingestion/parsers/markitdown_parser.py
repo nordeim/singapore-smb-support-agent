@@ -1,6 +1,5 @@
 """Document parsing using MarkItDown library."""
 
-from typing import Optional, List
 from markitdown import MarkItDown
 
 
@@ -22,7 +21,7 @@ class DocumentParser:
     ]
 
     @staticmethod
-    def parse(file_path: str) -> Optional[str]:
+    def parse(file_path: str) -> str | None:
         """Parse document and return text content."""
         try:
             md = MarkItDown()

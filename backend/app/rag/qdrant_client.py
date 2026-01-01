@@ -1,15 +1,16 @@
 """Qdrant client initialization and collection setup."""
 
-from typing import Optional
+
 from qdrant_client import QdrantClient, models
-from qdrant_client.http.models import Distance, VectorParams, Filter
+from qdrant_client.http.models import Distance, Filter, VectorParams
+
 from app.config import settings
 
 
 class QdrantManager:
     """Qdrant client manager."""
 
-    _instance: Optional[QdrantClient] = None
+    _instance: QdrantClient | None = None
 
     @classmethod
     def get_client(cls) -> QdrantClient:
@@ -57,7 +58,7 @@ class QdrantManager:
         collection_name: str,
         query_vector: list[float],
         limit: int = 5,
-        score_threshold: Optional[float] = None,
+        score_threshold: float | None = None,
     ) -> list[models.ScoredPoint]:
         """Search documents in Qdrant collection."""
         client = cls.get_client()

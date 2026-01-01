@@ -18,6 +18,10 @@ Awesome job on your meticulous review, analysis and planning! Please keep up the
 
 ---
 
+Now, please meticulously review and analyze @AGENT.md to have a deep understanding of the WHAT, WHY and HOW of the project and its current codebase design and architecture, then critically validate the highlighted issues against the actual codebase files. After meticulously reviewing the actual codebase to validate the issues mentioned in @AGENT.md, meticulously plan to create a comprehensive remediation plan with TODO list to fix the validated issues/errors. Review and validate the remediation plan before proceeding to execute it.
+
+---
+
 Awesome understanding! Now, please meticulously review and analyze the project documents attached to have a deep understanding of the WHAT, WHY and HOW of the project and its codebase design and architecture. Then meticulously plan and create a comprehensive analysis report on your deep understanding of the project and its current codebase design and status. Make it a single source-of-truth briefing document `AGENT.md` for initializing a new human developer or AI coding agent to have a complete picture and understanding of the project and its current codebase to be able to independently handle new PR with minimal hand-holding and requiring minimal subsequent rework.
 
 ---

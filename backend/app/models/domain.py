@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel
 
 
 class UserRole(str, Enum):
@@ -38,7 +38,7 @@ class User(BaseModel):
     consent_given_at: datetime
     consent_version: str
     data_retention_days: int = 30
-    auto_expiry_at: Optional[datetime] = None
+    auto_expiry_at: datetime | None = None
     is_active: bool = True
     is_deleted: bool = False
     created_at: datetime
@@ -51,7 +51,7 @@ class Conversation(BaseModel):
     session_id: str
     language: ConversationLanguage = ConversationLanguage.ENGLISH
     is_active: bool = True
-    ended_at: Optional[datetime] = None
+    ended_at: datetime | None = None
     summary_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -62,8 +62,8 @@ class Message(BaseModel):
     conversation_id: int
     role: MessageRole
     content: str
-    confidence: Optional[float] = None
-    sources: Optional[str] = None
+    confidence: float | None = None
+    sources: str | None = None
     created_at: datetime
 
 
@@ -73,8 +73,8 @@ class ConversationSummary(BaseModel):
     summary: str
     message_range_start: int
     message_range_end: int
-    embedding_vector: Optional[bytes] = None
-    metadata: Optional[str] = None
+    embedding_vector: bytes | None = None
+    metadata: str | None = None
     created_at: datetime
 
 
@@ -83,7 +83,7 @@ class SupportTicket(BaseModel):
     conversation_id: int
     reason: str
     status: TicketStatus = TicketStatus.OPEN
-    assigned_to: Optional[str] = None
-    resolved_at: Optional[datetime] = None
+    assigned_to: str | None = None
+    resolved_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

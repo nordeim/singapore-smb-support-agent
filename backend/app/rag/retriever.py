@@ -1,11 +1,12 @@
 """Hybrid retrieval combining dense (semantic) and sparse (BM25) search with RRF fusion."""
 
-from typing import List, Optional
+
 from qdrant_client import models
-from qdrant_client.http.models import Distance, Filter, PointStruct
+from qdrant_client.http.models import Filter
+
+from app.config import settings
 from app.ingestion.embedders.embedding import embedding_generator
 from app.rag.qdrant_client import QdrantManager
-from app.config import settings
 
 
 class HybridRetriever:
@@ -19,8 +20,8 @@ class HybridRetriever:
         self,
         query: str,
         collection_name: str = "knowledge_base",
-        filters: Optional[dict] = None,
-    ) -> List[models.ScoredPoint]:
+        filters: dict | None = None,
+    ) -> list[models.ScoredPoint]:
         """Execute hybrid search combining dense and sparse results with RRF fusion."""
         query_vector = await embedding_generator.generate_single(query)
 
@@ -34,10 +35,10 @@ class HybridRetriever:
 
     async def _dense_search(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         collection_name: str,
         filter: Filter,
-    ) -> List[models.ScoredPoint]:
+    ) -> list[models.ScoredPoint]:
         """Dense vector search using native Qdrant client."""
         client = QdrantManager.get_client()
 
