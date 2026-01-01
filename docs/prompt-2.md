@@ -14,6 +14,10 @@ Awesome job on your meticulous review, analysis and planning! Please keep up the
 
 ---
 
+Awesome job on your meticulous review, analysis and planning! Please keep up the good work in your rigorous and meticulous approach to planning and execution! Now, please meticulously review, analyze the actual project codebase files in the attached bundle set, and to update and validate your deep understanding of the project and its current codebase design and completion status. Then meticulously plan and create a comprehensive codebase analysis assessment report, paying particular attention to the actual implementation versus the design goals, and to look for and highlight any coding or logic errors in your report. also add any recommendations or suggestions for improvement at the end of your detailed and comprehensive assessment report.
+
+---
+
 Awesome understanding! Now, please meticulously review and analyze the project documents attached to have a deep understanding of the WHAT, WHY and HOW of the project and its codebase design and architecture. Then meticulously plan and create a comprehensive analysis report on your deep understanding of the project and its current codebase design and status. Make it a single source-of-truth briefing document `AGENT.md` for initializing a new human developer or AI coding agent to have a complete picture and understanding of the project and its current codebase to be able to independently handle new PR with minimal hand-holding and requiring minimal subsequent rework.
 
 ---
