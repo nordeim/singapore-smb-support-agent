@@ -188,20 +188,19 @@ datefmt = %H:%M:%S
 
 # backend/pytest.ini
 ```ini
-"""Pytest configuration."""
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-asyncio_mode = "auto"
-addopts = "-v --strict-markers --tb=short"
-markers = [
-    "unit: Unit tests",
-    "integration: Integration tests",
-    "evaluation: RAGAS evaluation tests",
-    "slow: Slow running tests",
-]
+[pytest]
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+asyncio_mode = auto
+addopts = -v --strict-markers --tb=short
+markers =
+    unit: Unit tests
+    integration: Integration tests
+    evaluation: RAGAS evaluation tests
+    slow: Slow running tests
+
 
 ```
 
@@ -397,17 +396,18 @@ networks:
 
 from contextlib import asynccontextmanager
 from datetime import datetime
+
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.routes import auth, chat
 from app.config import settings
-from app.api.routes import chat, auth
-from app.models.schemas import HealthCheckResponse, ErrorResponse
 from app.dependencies import engine
 from app.models.database import Base
+from app.models.schemas import ErrorResponse, HealthCheckResponse
 
 
 @asynccontextmanager
@@ -579,6 +579,7 @@ if __name__ == "__main__":
 """Conversation summarizer using LLM via OpenRouter."""
 
 from langchain_openai import ChatOpenAI
+
 from app.config import settings
 
 
@@ -661,16 +662,16 @@ conversation_summarizer = ConversationSummarizer()
 """Long-term memory using PostgreSQL with SQLAlchemy async."""
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import select, func
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.database import (
-    Base,
-    User,
     Conversation,
-    Message,
     ConversationSummary,
+    Message,
     SupportTicket,
+    User,
 )
 
 
@@ -706,13 +707,13 @@ class LongTermMemory:
         await self.db.refresh(user)
         return user
 
-    async def get_user_by_email(self, email: str) -> Optional[User]:
+    async def get_user_by_email(self, email: str) -> User | None:
         """Get user by email."""
         result = await self.db.execute(
             select(User)
             .where(User.email == email)
-            .where(User.is_active == True)
-            .where(User.is_deleted == False)
+            .where(User.is_active)
+            .where(not User.is_deleted)
         )
         return result.scalar_one_or_none()
 
@@ -737,12 +738,12 @@ class LongTermMemory:
         await self.db.refresh(conversation)
         return conversation
 
-    async def get_conversation_by_session_id(self, session_id: str) -> Optional[Conversation]:
+    async def get_conversation_by_session_id(self, session_id: str) -> Conversation | None:
         """Get conversation by session ID."""
         result = await self.db.execute(
             select(Conversation)
             .where(Conversation.session_id == session_id)
-            .where(Conversation.is_active == True)
+            .where(Conversation.is_active)
         )
         return result.scalar_one_or_none()
 
@@ -751,8 +752,8 @@ class LongTermMemory:
         conversation_id: int,
         role: str,
         content: str,
-        confidence: Optional[float] = None,
-        sources: Optional[str] = None,
+        confidence: float | None = None,
+        sources: str | None = None,
     ) -> Message:
         """Add a message to conversation."""
         message = Message(
@@ -790,8 +791,8 @@ class LongTermMemory:
         summary: str,
         message_range_start: int,
         message_range_end: int,
-        embedding_vector: Optional[str] = None,
-        metadata: Optional[str] = None,
+        embedding_vector: str | None = None,
+        metadata: str | None = None,
     ) -> ConversationSummary:
         """Save conversation summary."""
         conv_summary = ConversationSummary(
@@ -852,8 +853,8 @@ class LongTermMemory:
         self,
         ticket_id: int,
         status: str,
-        assigned_to: Optional[str] = None,
-    ) -> Optional[SupportTicket]:
+        assigned_to: str | None = None,
+    ) -> SupportTicket | None:
         """Update ticket status."""
         result = await self.db.execute(select(SupportTicket).where(SupportTicket.id == ticket_id))
         ticket = result.scalar_one_or_none()
@@ -879,7 +880,7 @@ class LongTermMemory:
         result = await self.db.execute(
             select(func.count(Conversation.id))
             .where(Conversation.user_id == user_id)
-            .where(Conversation.is_active == True)
+            .where(Conversation.is_active)
         )
         count = result.scalar()
         return count if count is not None else 0
@@ -890,12 +891,10 @@ class LongTermMemory:
 ```py
 """Memory manager orchestrating short-term, long-term, and summarization."""
 
-from typing import Optional
 
-from app.memory.short_term import ShortTermMemory
 from app.memory.long_term import LongTermMemory
+from app.memory.short_term import ShortTermMemory
 from app.memory.summarizer import ConversationSummarizer
-from app.config import settings
 
 
 class MemoryManager:
@@ -909,7 +908,7 @@ class MemoryManager:
         self.long_term = LongTermMemory(db_session)
         self.summarizer = ConversationSummarizer()
 
-    async def get_session(self, session_id: str) -> Optional[dict]:
+    async def get_session(self, session_id: str) -> dict | None:
         """Get session from short-term memory."""
         return await self.short_term.get_session(session_id)
 
@@ -987,8 +986,8 @@ class MemoryManager:
         conversation_id: int,
         role: str,
         content: str,
-        confidence: Optional[float] = None,
-        sources: Optional[str] = None,
+        confidence: float | None = None,
+        sources: str | None = None,
     ) -> dict:
         """Save message to both short-term and long-term memory."""
         from datetime import datetime
@@ -1062,15 +1061,16 @@ def get_memory_manager(db_session) -> MemoryManager:
 ```py
 """Redis configuration and session management."""
 
-from typing import Optional
+
 import redis.asyncio as redis
+
 from app.config import settings
 
 
 class RedisManager:
     """Redis connection manager."""
 
-    _instance: Optional[redis.Redis] = None
+    _instance: redis.Redis | None = None
 
     @classmethod
     def get_client(cls) -> redis.Redis:
@@ -1101,7 +1101,7 @@ class ShortTermMemory:
     SESSION_TTL = settings.PDPA_SESSION_TTL_MINUTES * 60
 
     @staticmethod
-    async def get_session(session_id: str) -> Optional[dict]:
+    async def get_session(session_id: str) -> dict | None:
         """Retrieve session data from Redis."""
         key = f"{ShortTermMemory.SESSION_PREFIX}{session_id}"
         return await redis_client.get(key)
@@ -1118,7 +1118,6 @@ class ShortTermMemory:
     @staticmethod
     async def add_message(session_id: str, message: dict) -> None:
         """Add message to session in Redis."""
-        import json
 
         session_data = await ShortTermMemory.get_session(session_id)
         if session_data is None:
@@ -1156,7 +1155,7 @@ class ShortTermMemory:
 """Mock embedding generator for testing without API costs."""
 
 import random
-from typing import List
+
 from app.config import settings
 
 
@@ -1167,15 +1166,15 @@ class MockEmbeddingGenerator:
         """Initialize mock embedding generator."""
         self.dimension = settings.EMBEDDING_DIMENSION
 
-    async def generate(self, texts: List[str]) -> List[List[float]]:
+    async def generate(self, texts: list[str]) -> list[list[float]]:
         """Generate mock embeddings for a list of texts."""
         return [self._generate_single_vector(text) for text in texts]
 
-    async def generate_single(self, text: str) -> List[float]:
+    async def generate_single(self, text: str) -> list[float]:
         """Generate mock embedding for a single text."""
         return self._generate_single_vector(text)
 
-    def _generate_single_vector(self, text: str) -> List[float]:
+    def _generate_single_vector(self, text: str) -> list[float]:
         """Generate a deterministic pseudo-random vector based on text content."""
         random.seed(hash(text))
         vector = [random.uniform(-1, 1) for _ in range(self.dimension)]
@@ -1198,8 +1197,9 @@ def get_embedding_generator():
 ```py
 """Embedding generation for vector storage."""
 
-from typing import List
+
 from openai import AsyncOpenAI
+
 from app.config import settings
 
 
@@ -1215,7 +1215,7 @@ class EmbeddingGenerator:
         self.model = settings.EMBEDDING_MODEL
         self.dimension = settings.EMBEDDING_DIMENSION
 
-    async def generate(self, texts: List[str]) -> List[List[float]]:
+    async def generate(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for a list of texts."""
         response = await self.client.embeddings.create(
             model=self.model,
@@ -1224,7 +1224,7 @@ class EmbeddingGenerator:
 
         return [item.embedding for item in response.data]
 
-    async def generate_single(self, text: str) -> List[float]:
+    async def generate_single(self, text: str) -> list[float]:
         """Generate embedding for a single text."""
         result = await self.generate([text])
         return result[0]
@@ -1238,17 +1238,18 @@ embedding_generator = EmbeddingGenerator()
 ```py
 """Ingestion pipeline orchestrator for document processing."""
 
-from typing import List, Optional, Literal
-from pathlib import Path
 import asyncio
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
 
-from app.ingestion.parsers.markitdown_parser import DocumentParser
-from app.ingestion.chunkers.chunker import SemanticChunker, RecursiveChunker
-from app.ingestion.embedders.embedding import EmbeddingGenerator
-from app.rag.qdrant_client import QdrantManager
-from app.config import settings
 from qdrant_client.http.models import PointStruct
+
+from app.config import settings
+from app.ingestion.chunkers.chunker import RecursiveChunker, SemanticChunker
+from app.ingestion.embedders.embedding import EmbeddingGenerator
+from app.ingestion.parsers.markitdown_parser import DocumentParser
+from app.rag.qdrant_client import QdrantManager
 
 
 def get_embedding_generator(use_mock: bool = False):
@@ -1269,7 +1270,7 @@ class IngestionResult:
         successful: int = 0,
         failed: int = 0,
         total_chunks: int = 0,
-        errors: Optional[List[str]] = None,
+        errors: list[str] | None = None,
     ):
         self.total_documents = total_documents
         self.successful = successful
@@ -1326,7 +1327,7 @@ class IngestionPipeline:
     async def ingest_document(
         self,
         file_path: str,
-        additional_metadata: Optional[dict] = None,
+        additional_metadata: dict | None = None,
     ) -> dict:
         """
         Ingest a single document.
@@ -1394,9 +1395,9 @@ class IngestionPipeline:
 
     async def ingest_batch(
         self,
-        file_paths: List[str],
+        file_paths: list[str],
         batch_size: int = 10,
-        additional_metadata: Optional[dict] = None,
+        additional_metadata: dict | None = None,
     ) -> IngestionResult:
         """
         Ingest multiple documents in batches.
@@ -1441,8 +1442,8 @@ class IngestionPipeline:
         directory_path: str,
         recursive: bool = False,
         batch_size: int = 10,
-        file_extensions: Optional[List[str]] = None,
-        additional_metadata: Optional[dict] = None,
+        file_extensions: list[str] | None = None,
+        additional_metadata: dict | None = None,
     ) -> IngestionResult:
         """
         Ingest all documents from a directory.
@@ -1491,11 +1492,11 @@ class IngestionPipeline:
 
     def _create_qdrant_points(
         self,
-        chunks: List[str],
-        embeddings: List[List[float]],
+        chunks: list[str],
+        embeddings: list[list[float]],
         file_metadata: dict,
-        additional_metadata: Optional[dict] = None,
-    ) -> List[PointStruct]:
+        additional_metadata: dict | None = None,
+    ) -> list[PointStruct]:
         """
         Create Qdrant points from chunks and embeddings.
 
@@ -1574,9 +1575,8 @@ __all__ = [
 ```py
 """Text chunking strategies for RAG."""
 
-from typing import List, Optional
-from sentence_transformers import SentenceTransformer
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
 
 class SemanticChunker:
@@ -1593,7 +1593,7 @@ class SemanticChunker:
         self.chunk_size = chunk_size
         self.similarity_threshold = similarity_threshold
 
-    def chunk(self, text: str) -> List[str]:
+    def chunk(self, text: str) -> list[str]:
         """Chunk text based on semantic boundaries."""
         sentences = self._split_sentences(text)
 
@@ -1619,7 +1619,7 @@ class SemanticChunker:
 
         return chunks
 
-    def _split_sentences(self, text: str) -> List[str]:
+    def _split_sentences(self, text: str) -> list[str]:
         """Split text into sentences."""
         import re
 
@@ -1638,18 +1638,18 @@ class RecursiveChunker:
         self,
         chunk_size: int = 500,
         chunk_overlap: int = 100,
-        separators: List[str] = ["\n\n", "\n", ". ", " ", ""],
+        separators: list[str] = ["\n\n", "\n", ". ", " ", ""],
     ):
         """Initialize recursive chunker."""
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.separators = separators
 
-    def chunk(self, text: str) -> List[str]:
+    def chunk(self, text: str) -> list[str]:
         """Recursively chunk text."""
         return self._recursive_split(text, self.separators)
 
-    def _recursive_split(self, text: str, separators: List[str]) -> List[str]:
+    def _recursive_split(self, text: str, separators: list[str]) -> list[str]:
         """Recursively split text using separators."""
         separator = separators[0]
 
@@ -1676,7 +1676,7 @@ class RecursiveChunker:
 
         return chunks
 
-    def _split_text(self, text: str, separator: str) -> List[str]:
+    def _split_text(self, text: str, separator: str) -> list[str]:
         """Split text into chunks with overlap."""
         chunks = []
         start = 0
@@ -1699,7 +1699,6 @@ class RecursiveChunker:
 ```py
 """Document parsing using MarkItDown library."""
 
-from typing import Optional, List
 from markitdown import MarkItDown
 
 
@@ -1721,7 +1720,7 @@ class DocumentParser:
     ]
 
     @staticmethod
-    def parse(file_path: str) -> Optional[str]:
+    def parse(file_path: str) -> str | None:
         """Parse document and return text content."""
         try:
             md = MarkItDown()
@@ -1761,13 +1760,12 @@ class DocumentParser:
 ```py
 """Main RAG pipeline orchestrator."""
 
-from typing import List, Optional
-from app.rag.query_transform import QueryTransformer
-from app.rag.retriever import HybridRetriever
-from app.rag.reranker import BGEReranker
-from app.rag.context_compress import ContextCompressor
-from app.models.domain import MessageRole
+
 from app.config import settings
+from app.rag.context_compress import ContextCompressor
+from app.rag.query_transform import QueryTransformer
+from app.rag.reranker import BGEReranker
+from app.rag.retriever import HybridRetriever
 
 
 class RAGPipeline:
@@ -1784,7 +1782,7 @@ class RAGPipeline:
         self,
         query: str,
         session_id: str,
-        conversation_history: List[dict],
+        conversation_history: list[dict],
     ) -> dict:
         """Execute full RAG pipeline."""
         transform_result = await self.query_transformer.transform(query)
@@ -1821,7 +1819,7 @@ class RAGPipeline:
     async def retrieve_context(
         self,
         query: str,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ) -> str:
         """Simple retrieval for context without full pipeline."""
         docs = await self.reranker.async_rerank(
@@ -1846,16 +1844,17 @@ rag_pipeline = RAGPipeline()
 ```py
 """Qdrant client initialization and collection setup."""
 
-from typing import Optional
+
 from qdrant_client import QdrantClient, models
-from qdrant_client.http.models import Distance, VectorParams, Filter
+from qdrant_client.http.models import Distance, Filter, VectorParams
+
 from app.config import settings
 
 
 class QdrantManager:
     """Qdrant client manager."""
 
-    _instance: Optional[QdrantClient] = None
+    _instance: QdrantClient | None = None
 
     @classmethod
     def get_client(cls) -> QdrantClient:
@@ -1903,7 +1902,7 @@ class QdrantManager:
         collection_name: str,
         query_vector: list[float],
         limit: int = 5,
-        score_threshold: Optional[float] = None,
+        score_threshold: float | None = None,
     ) -> list[models.ScoredPoint]:
         """Search documents in Qdrant collection."""
         client = cls.get_client()
@@ -1930,8 +1929,9 @@ qdrant_client = QdrantManager.get_client()
 ```py
 """Query transformation using LangChain LLM."""
 
-from typing import Optional
+
 from langchain_openai import ChatOpenAI
+
 from app.config import settings
 
 
@@ -1994,7 +1994,7 @@ Language (en, zh, ms, ta):
         detected = response.content.strip().lower()
         return detected if detected in ["en", "zh", "ms", "ta"] else "en"
 
-    async def decompose_query(self, query: str) -> Optional[list[str]]:
+    async def decompose_query(self, query: str) -> list[str] | None:
         """Decompose complex queries into sub-queries."""
         intent = await self.classify_intent(query)
 
@@ -2037,7 +2037,6 @@ Sub-queries (list each on a new line):
 ```py
 """Context compression for working memory management."""
 
-from typing import List, Optional
 from app.config import settings
 
 
@@ -2053,7 +2052,7 @@ class ContextCompressor:
 
     def compress(
         self,
-        documents: List[str],
+        documents: list[str],
         query: str = "",
     ) -> dict:
         """Compress documents within token budget using extractive compression."""
@@ -2079,12 +2078,12 @@ class ContextCompressor:
             "tokens_budget": self.token_budget,
         }
 
-    def _estimate_tokens(self, texts: List[str]) -> int:
+    def _estimate_tokens(self, texts: list[str]) -> int:
         """Estimate token count (rough approximation: 4 chars per token)."""
         total_chars = sum(len(text) for text in texts)
         return total_chars // 4
 
-    def _sort_by_relevance(self, documents: List[str], query: str) -> List[str]:
+    def _sort_by_relevance(self, documents: list[str], query: str) -> list[str]:
         """Sort documents by relevance to query (keyword matching)."""
         if not query:
             return documents
@@ -2101,9 +2100,9 @@ class ContextCompressor:
 
     def _extractive_compression(
         self,
-        documents: List[str],
+        documents: list[str],
         max_tokens: int,
-    ) -> List[str]:
+    ) -> list[str]:
         """Extractive compression to keep most relevant content."""
         compressed = []
         current_tokens = 0
@@ -2122,7 +2121,7 @@ class ContextCompressor:
 
         return compressed
 
-    def _extract_key_sentences(self, text: str, max_sentences: int = 3) -> List[str]:
+    def _extract_key_sentences(self, text: str, max_sentences: int = 3) -> list[str]:
         """Extract key sentences from document."""
         import re
 
@@ -2168,9 +2167,9 @@ class ContextCompressor:
 ```py
 """Cross-encoder reranker using HuggingFace."""
 
-from typing import List
-from sentence_transformers import CrossEncoder
+
 import torch
+from sentence_transformers import CrossEncoder
 
 
 class BGEReranker:
@@ -2185,9 +2184,9 @@ class BGEReranker:
     def rerank(
         self,
         query: str,
-        documents: List[dict],
+        documents: list[dict],
         top_k: int = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Rerank documents using cross-encoder scoring."""
         if top_k is None:
             top_k = self.top_n
@@ -2212,9 +2211,9 @@ class BGEReranker:
     async def async_rerank(
         self,
         query: str,
-        documents: List[dict],
+        documents: list[dict],
         top_k: int = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Async wrapper for reranking."""
         return self.rerank(query, documents, top_k)
 
@@ -2224,12 +2223,13 @@ class BGEReranker:
 ```py
 """Hybrid retrieval combining dense (semantic) and sparse (BM25) search with RRF fusion."""
 
-from typing import List, Optional
+
 from qdrant_client import models
-from qdrant_client.http.models import Distance, Filter, PointStruct
+from qdrant_client.http.models import Filter
+
+from app.config import settings
 from app.ingestion.embedders.embedding import embedding_generator
 from app.rag.qdrant_client import QdrantManager
-from app.config import settings
 
 
 class HybridRetriever:
@@ -2243,8 +2243,8 @@ class HybridRetriever:
         self,
         query: str,
         collection_name: str = "knowledge_base",
-        filters: Optional[dict] = None,
-    ) -> List[models.ScoredPoint]:
+        filters: dict | None = None,
+    ) -> list[models.ScoredPoint]:
         """Execute hybrid search combining dense and sparse results with RRF fusion."""
         query_vector = await embedding_generator.generate_single(query)
 
@@ -2258,10 +2258,10 @@ class HybridRetriever:
 
     async def _dense_search(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         collection_name: str,
         filter: Filter,
-    ) -> List[models.ScoredPoint]:
+    ) -> list[models.ScoredPoint]:
         """Dense vector search using native Qdrant client."""
         client = QdrantManager.get_client()
 
@@ -2280,7 +2280,7 @@ class HybridRetriever:
 ```py
 """Application configuration using Pydantic Settings."""
 
-from typing import Optional
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -2309,7 +2309,7 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = Field(
         default="https://openrouter.ai/api/v1", description="OpenRouter API base URL"
     )
-    OPENAI_API_KEY: Optional[str] = Field(
+    OPENAI_API_KEY: str | None = Field(
         default=None, description="OpenAI API key (optional)"
     )
 
@@ -2406,16 +2406,14 @@ settings = Settings()
 ```py
 """FastAPI dependency injection functions for Singapore SMB Support Agent."""
 
-from typing import AsyncGenerator, Optional
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.models.database import Base
 from app.memory.manager import MemoryManager
-
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -2465,7 +2463,7 @@ class BusinessContext:
 
     def get_current_time(self) -> datetime:
         """Get current time in Singapore timezone."""
-        return datetime.now(timezone.utc).astimezone()
+        return datetime.now(UTC).astimezone()
 
     def is_business_hours(self) -> bool:
         """Check if current time is within business hours."""
@@ -2499,12 +2497,12 @@ async def get_current_user_mvp(
 ) -> dict:
     """MVP user dependency using session ID instead of JWT token."""
     from sqlalchemy import text
-    from app.models.database import User, Conversation
+
 
     result = await db.execute(
-        text("""SELECT u.id, u.email, u.is_active, u.data_retention_days 
-               FROM users u 
-               JOIN conversations c ON u.id = c.user_id 
+        text("""SELECT u.id, u.email, u.is_active, u.data_retention_days
+               FROM users u
+               JOIN conversations c ON u.id = c.user_id
                WHERE c.session_id = :session_id AND u.is_active = TRUE"""),
         {"session_id": session_id},
     )
@@ -2556,7 +2554,6 @@ async def get_session_data(
 ```py
 """Response templates for Singapore SMB Support Agent."""
 
-from typing import Optional
 
 
 class ResponseTemplates:
@@ -2611,7 +2608,7 @@ class ResponseTemplates:
         return "Thank you for your patience. I'm glad I could help!"
 
     @staticmethod
-    def customer_info_found(name: Optional[str] = None) -> str:
+    def customer_info_found(name: str | None = None) -> str:
         if name:
             return f"I found your account, {name}. How can I assist you today?"
         return "I found your account. How can I assist you today?"
@@ -2689,7 +2686,7 @@ Just ask me anything, and I'll do my best to assist you!"""
         return f"{feature} is not currently available. Let me connect you with a human agent to discuss alternatives or timeline."
 
 
-def get_template(name: str, **kwargs) -> Optional[str]:
+def get_template(name: str, **kwargs) -> str | None:
     """Get a response template by name."""
     template_method = getattr(ResponseTemplates, name, None)
     if template_method and callable(template_method):
@@ -2804,9 +2801,9 @@ Tool Selection:"""
 ```py
 """Validators for Singapore SMB Support Agent responses."""
 
-from typing import Literal, Optional
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel, Field
 
 
 class Sentiment(str, Enum):
@@ -2836,7 +2833,7 @@ class ValidationResult(BaseModel):
     pdpa_compliance: PDPACompliance
     requires_escalation: bool
     requires_followup: bool
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class ResponseValidator:
@@ -2926,7 +2923,7 @@ class ResponseValidator:
 
     @staticmethod
     def check_pdpa_compliance(
-        text: str, context: Optional[dict] = None
+        text: str, context: dict | None = None
     ) -> PDPACompliance:
         """
         Check PDPA compliance for response.
@@ -2993,7 +2990,7 @@ class ResponseValidator:
         cls,
         text: str,
         confidence: float = 0.7,
-        context: Optional[dict] = None,
+        context: dict | None = None,
         confidence_threshold: float = 0.5,
     ) -> ValidationResult:
         """
@@ -3072,7 +3069,7 @@ class ResponseValidator:
 ```py
 """Escalate to human tool for Singapore SMB Support Agent."""
 
-from typing import Optional
+
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -3087,7 +3084,7 @@ class EscalateToHumanInput(BaseModel):
         description="Urgency level: low, normal, high, critical",
     )
     session_id: str = Field(..., description="Session identifier")
-    user_id: Optional[int] = Field(None, description="User ID (optional)")
+    user_id: int | None = Field(None, description="User ID (optional)")
 
 
 class EscalationTicket(BaseModel):
@@ -3096,7 +3093,7 @@ class EscalationTicket(BaseModel):
     ticket_id: str
     reason: str
     status: str
-    assigned_to: Optional[str]
+    assigned_to: str | None
     estimated_response_time: str
 
 
@@ -3104,7 +3101,7 @@ class EscalateToHumanOutput(BaseModel):
     """Output for escalate_to_human tool."""
 
     success: bool = Field(..., description="Whether escalation was successful")
-    ticket: Optional[EscalationTicket] = Field(None, description="Ticket information")
+    ticket: EscalationTicket | None = Field(None, description="Ticket information")
     message: str = Field(..., description="Human-readable message")
 
 
@@ -3112,8 +3109,8 @@ async def escalate_to_human(
     reason: str,
     urgency: str = "normal",
     session_id: str = "",
-    user_id: Optional[int] = None,
-    db: Optional[AsyncSession] = None,
+    user_id: int | None = None,
+    db: AsyncSession | None = None,
 ) -> EscalateToHumanOutput:
     """
     Create a support ticket and escalate to human agent.
@@ -3129,8 +3126,9 @@ async def escalate_to_human(
         EscalateToHumanOutput with ticket information
     """
     try:
-        from app.models.database import Conversation, SupportTicket
         from datetime import datetime
+
+        from app.models.database import Conversation, SupportTicket
 
         ticket_id = f"T{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
 
@@ -3186,7 +3184,7 @@ async def escalate_to_human(
         )
 
 
-def get_escalate_to_human_tool(db: Optional[AsyncSession] = None):
+def get_escalate_to_human_tool(db: AsyncSession | None = None):
     """Factory function to create escalate_to_human tool for Pydantic AI."""
     from pydantic_ai import Tool
 
@@ -3194,7 +3192,7 @@ def get_escalate_to_human_tool(db: Optional[AsyncSession] = None):
         reason: str,
         urgency: str = "normal",
         session_id: str = "",
-        user_id: Optional[int] = None,
+        user_id: int | None = None,
     ) -> dict:
         result = await escalate_to_human(
             reason=reason,
@@ -3227,8 +3225,8 @@ def get_escalate_to_human_tool(db: Optional[AsyncSession] = None):
 ```py
 """Get customer info tool for Singapore SMB Support Agent."""
 
-from typing import Optional
 from datetime import datetime
+
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -3257,8 +3255,8 @@ class GetCustomerInfoOutput(BaseModel):
     """Output for get_customer_info tool."""
 
     success: bool = Field(..., description="Whether lookup was successful")
-    customer: Optional[CustomerInfo] = Field(None, description="Customer information")
-    message: Optional[str] = Field(None, description="Additional information")
+    customer: CustomerInfo | None = Field(None, description="Customer information")
+    message: str | None = Field(None, description="Additional information")
 
 
 async def get_customer_info(
@@ -3281,7 +3279,7 @@ async def get_customer_info(
         from app.models.database import User
 
         query = select(User).where(
-            (User.email == customer_identifier) & (User.is_deleted == False)
+            (User.email == customer_identifier) & (not User.is_deleted)
         )
 
         result = await db.execute(query)
@@ -3352,15 +3350,15 @@ def get_customer_info_tool(db: AsyncSession):
 ```py
 """Check business hours tool for Singapore SMB Support Agent."""
 
-from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
 class BusinessHoursInput(BaseModel):
     """Input for check_business_hours tool."""
 
-    date: Optional[str] = Field(
+    date: str | None = Field(
         None, description="Optional date string (YYYY-MM-DD). Defaults to today."
     )
     check_holiday: bool = Field(
@@ -3378,7 +3376,7 @@ class BusinessHoursInfo(BaseModel):
     business_start: str
     business_end: str
     timezone: str
-    holiday_name: Optional[str] = None
+    holiday_name: str | None = None
 
 
 class CheckBusinessHoursOutput(BaseModel):
@@ -3407,7 +3405,7 @@ SINGAPORE_PUBLIC_HOLIDAYS_2025 = [
 
 
 async def check_business_hours(
-    date: Optional[str] = None,
+    date: str | None = None,
     check_holiday: bool = True,
     business_start: str = "09:00",
     business_end: str = "18:00",
@@ -3519,7 +3517,7 @@ def get_check_business_hours_tool(
     from pydantic_ai import Tool
 
     async def tool_wrapper(
-        date: Optional[str] = None,
+        date: str | None = None,
         check_holiday: bool = True,
     ) -> dict:
         result = await check_business_hours(
@@ -3547,7 +3545,7 @@ def get_check_business_hours_tool(
 ```py
 """Retrieve knowledge tool for Singapore SMB Support Agent."""
 
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -3565,7 +3563,7 @@ class RetrieveKnowledgeOutput(BaseModel):
     knowledge: str = Field(..., description="Retrieved knowledge text")
     sources: list[dict] = Field(default_factory=list, description="Source citations")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
-    message: Optional[str] = Field(None, description="Additional information")
+    message: str | None = Field(None, description="Additional information")
 
 
 async def retrieve_knowledge(
@@ -3656,13 +3654,14 @@ def get_retrieve_knowledge_tool(rag_pipeline=None):
 ```py
 """Main Singapore SMB Support Agent using Pydantic AI."""
 
-from typing import Optional
+
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.prompts.system import RESPONSE_GENERATION_PROMPT, SYSTEM_PROMPT
+from app.agent.validators import ResponseValidator
 from app.config import settings
-from app.agent.prompts.system import SYSTEM_PROMPT
-from app.agent.validators import ResponseValidator, ValidationResult
 from app.memory.manager import MemoryManager
 
 
@@ -3670,7 +3669,7 @@ class AgentContext(BaseModel):
     """Context for agent operations."""
 
     session_id: str = Field(..., description="Session identifier")
-    user_id: Optional[int] = Field(None, description="User ID")
+    user_id: int | None = Field(None, description="User ID")
     conversation_summary: str = Field(default="", description="Conversation summary")
     recent_messages: list[dict] = Field(default_factory=list, description="Recent messages")
     business_hours_status: str = Field(..., description="Current business hours status")
@@ -3684,7 +3683,7 @@ class AgentResponse(BaseModel):
     sources: list[dict] = Field(default_factory=list, description="Source citations")
     escalated: bool = Field(default=False, description="Whether escalated to human")
     requires_followup: bool = Field(default=False, description="Whether followup needed")
-    ticket_id: Optional[str] = Field(None, description="Support ticket ID if created")
+    ticket_id: str | None = Field(None, description="Support ticket ID if created")
 
 
 class SupportAgent:
@@ -3698,8 +3697,8 @@ class SupportAgent:
     def __init__(
         self,
         rag_pipeline=None,
-        memory_manager: Optional[MemoryManager] = None,
-        db: Optional[AsyncSession] = None,
+        memory_manager: MemoryManager | None = None,
+        db: AsyncSession | None = None,
         ws_manager=None,
     ):
         """
@@ -3725,7 +3724,7 @@ class SupportAgent:
         )
 
     async def _assemble_context(
-        self, session_id: str, user_id: Optional[int] = None
+        self, session_id: str, user_id: int | None = None
     ) -> AgentContext:
         """Assemble agent context from memory."""
         if not self.memory_manager:
@@ -3754,7 +3753,7 @@ class SupportAgent:
         self,
         message: str,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: int | None = None,
     ) -> AgentResponse:
         """
         Process a user message and generate a response.
@@ -3793,7 +3792,6 @@ class SupportAgent:
             if self.rag_pipeline:
                 await self._emit_thought(session_id, "searching_knowledge")
                 from app.agent.tools.retrieve_knowledge import retrieve_knowledge
-                from app.config import settings
 
                 knowledge_result = await retrieve_knowledge(
                     query=message,
@@ -3860,7 +3858,7 @@ class SupportAgent:
                 ticket_id=None,
             )
 
-        except Exception as e:
+        except Exception:
             return AgentResponse(
                 message="I apologize, but I'm experiencing a technical issue. Let me connect you with a human agent.",
                 confidence=0.0,
@@ -3886,15 +3884,46 @@ class SupportAgent:
         knowledge: str,
         context: AgentContext,
     ) -> str:
-        """Generate response using system prompt and knowledge."""
-        if knowledge:
-            return f"""Based on our knowledge base, here's what I can help you with:
+        """Generate response using LLM with retrieved knowledge and context."""
+        try:
+            llm = ChatOpenAI(
+                model=settings.LLM_MODEL_PRIMARY,
+                temperature=settings.LLM_TEMPERATURE,
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url=settings.OPENROUTER_BASE_URL,
+            )
+
+            recent_messages_str = "\n".join(
+                [
+                    f"{msg.get('role', 'unknown')}: {msg.get('content', '')}"
+                    for msg in context.recent_messages[-5:]
+                ]
+            )
+
+            prompt = RESPONSE_GENERATION_PROMPT.format(
+                query=query,
+                knowledge=knowledge
+                if knowledge
+                else "No relevant information found in knowledge base.",
+                conversation_summary=context.conversation_summary,
+                recent_messages=recent_messages_str,
+            )
+
+            response = llm.invoke(prompt)
+            if hasattr(response, "content"):
+                return str(response.content)
+            return str(response)
+
+        except Exception as e:
+            print(f"LLM generation error: {e}")
+            if knowledge:
+                return f"""Based on our knowledge base, here's what I can help you with:
 
 {knowledge}
 
 Is there anything else you'd like to know?"""
-        else:
-            return """I couldn't find specific information about your inquiry in my knowledge base. 
+            else:
+                return """I couldn't find specific information about your inquiry in my knowledge base.
 
 Could you provide more details or would you like me to connect you with a human agent who can assist you better?"""
 
@@ -3903,7 +3932,7 @@ Could you provide more details or would you like me to connect you with a human 
         message: str,
         reason: str,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: int | None = None,
     ) -> AgentResponse:
         """Escalate message to human support."""
         from app.agent.tools.escalate_to_human import escalate_to_human
@@ -3931,8 +3960,8 @@ Could you provide more details or would you like me to connect you with a human 
 
 async def get_support_agent(
     rag_pipeline=None,
-    memory_manager: Optional[MemoryManager] = None,
-    db: Optional[AsyncSession] = None,
+    memory_manager: MemoryManager | None = None,
+    db: AsyncSession | None = None,
     ws_manager=None,
 ) -> SupportAgent:
     """Factory function to create support agent instance."""
@@ -3955,9 +3984,10 @@ async def get_support_agent(
 """Alembic configuration for database migrations."""
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+
 from alembic import context
+from sqlalchemy import engine_from_config, pool
+
 from app.models.database import Base
 
 config = context.config
@@ -4043,23 +4073,22 @@ else:
 ```py
 """Authentication API routes for Singapore SMB Support Agent (MVP - Session-based)."""
 
-from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_memory_manager
-from app.models.schemas import (
-    UserRegisterRequest,
-    UserLoginRequest,
-    UserResponse,
-    TokenResponse,
-)
-from app.models.database import User, Conversation
 from app.config import settings
-
+from app.dependencies import get_db, get_memory_manager
+from app.models.database import Conversation, User
+from app.models.schemas import (
+    TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
@@ -4145,8 +4174,9 @@ async def login(
         TokenResponse with session token
     """
     try:
-        from passlib.context import CryptContext
         from uuid import uuid4
+
+        from passlib.context import CryptContext
 
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -4257,8 +4287,8 @@ async def get_current_user(
 
         result = await db.execute(
             text("""SELECT u.id, u.email, u.is_active, u.created_at
-                   FROM users u 
-                   JOIN conversations c ON u.id = c.user_id 
+                   FROM users u
+                   JOIN conversations c ON u.id = c.user_id
                    WHERE c.session_id = :session_id AND u.is_active = TRUE"""),
             {"session_id": session_id},
         )
@@ -4288,7 +4318,7 @@ async def get_current_user(
 
 @router.post("/session/new")
 async def create_new_session(
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     memory_manager=Depends(get_memory_manager),
 ):
@@ -4335,22 +4365,21 @@ async def create_new_session(
 ```py
 """Chat API routes with WebSocket support for Singapore SMB Support Agent."""
 
-from typing import Optional
+
 from fastapi import (
     APIRouter,
-    WebSocket,
-    WebSocketDisconnect,
     Depends,
     HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
     status,
 )
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_memory_manager, get_session_data
+from app.agent.support_agent import get_support_agent
+from app.dependencies import get_db, get_memory_manager
 from app.models.schemas import ChatRequest, ChatResponse, SourceCitation
-from app.agent.support_agent import SupportAgent, get_support_agent
-
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 security = HTTPBearer(auto_error=False)
@@ -4390,7 +4419,7 @@ async def chat(
     request: ChatRequest,
     db: AsyncSession = Depends(get_db),
     memory_manager=Depends(get_memory_manager),
-    token: Optional[str] = Depends(security),
+    token: str | None = Depends(security),
 ):
     """
     Process a chat message using the support agent.
@@ -4567,7 +4596,7 @@ async def websocket_chat(
 async def get_session(
     session_id: str,
     memory_manager=Depends(get_memory_manager),
-    token: Optional[str] = Depends(security),
+    token: str | None = Depends(security),
 ):
     """
     Get session information.
@@ -4614,9 +4643,10 @@ async def get_session(
 """SQLAlchemy database models for Singapore SMB Support Agent."""
 
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String, Text, Float, Integer, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -4766,8 +4796,8 @@ class SupportTicket(Base):
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel
 
 
 class UserRole(str, Enum):
@@ -4802,7 +4832,7 @@ class User(BaseModel):
     consent_given_at: datetime
     consent_version: str
     data_retention_days: int = 30
-    auto_expiry_at: Optional[datetime] = None
+    auto_expiry_at: datetime | None = None
     is_active: bool = True
     is_deleted: bool = False
     created_at: datetime
@@ -4815,7 +4845,7 @@ class Conversation(BaseModel):
     session_id: str
     language: ConversationLanguage = ConversationLanguage.ENGLISH
     is_active: bool = True
-    ended_at: Optional[datetime] = None
+    ended_at: datetime | None = None
     summary_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -4826,8 +4856,8 @@ class Message(BaseModel):
     conversation_id: int
     role: MessageRole
     content: str
-    confidence: Optional[float] = None
-    sources: Optional[str] = None
+    confidence: float | None = None
+    sources: str | None = None
     created_at: datetime
 
 
@@ -4837,8 +4867,8 @@ class ConversationSummary(BaseModel):
     summary: str
     message_range_start: int
     message_range_end: int
-    embedding_vector: Optional[bytes] = None
-    metadata: Optional[str] = None
+    embedding_vector: bytes | None = None
+    metadata: str | None = None
     created_at: datetime
 
 
@@ -4847,8 +4877,8 @@ class SupportTicket(BaseModel):
     conversation_id: int
     reason: str
     status: TicketStatus = TicketStatus.OPEN
-    assigned_to: Optional[str] = None
-    resolved_at: Optional[datetime] = None
+    assigned_to: str | None = None
+    resolved_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -4859,8 +4889,8 @@ class SupportTicket(BaseModel):
 """API Pydantic schemas for Singapore SMB Support Agent."""
 
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegisterRequest(BaseModel):
@@ -4905,10 +4935,10 @@ class ChatResponse(BaseModel):
     message: str
     role: str = "assistant"
     confidence: float = Field(..., ge=0.0, le=1.0)
-    sources: List[SourceCitation] = Field(default_factory=list)
+    sources: list[SourceCitation] = Field(default_factory=list)
     requires_followup: bool = False
     escalated: bool = False
-    ticket_id: Optional[str] = None
+    ticket_id: str | None = None
 
 
 class HealthCheckResponse(BaseModel):
@@ -4919,7 +4949,7 @@ class HealthCheckResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
-    error_code: Optional[str] = None
+    error_code: str | None = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -4928,14 +4958,14 @@ class SupportResponse(BaseModel):
 
     message: str = Field(..., description="Response message")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
-    sources: List[SourceCitation] = Field(
+    sources: list[SourceCitation] = Field(
         default_factory=list, description="Source citations"
     )
     escalated: bool = Field(default=False, description="Whether escalated to human")
     requires_followup: bool = Field(
         default=False, description="Whether followup needed"
     )
-    ticket_id: Optional[str] = Field(None, description="Support ticket ID if created")
+    ticket_id: str | None = Field(None, description="Support ticket ID if created")
 
 ```
 
@@ -5799,13 +5829,11 @@ Weekend delivery is available in select areas for Next-Day Shipping. Select this
 ```py
 """CLI tool for document ingestion into Qdrant vector database."""
 
-import asyncio
 import argparse
+import asyncio
 import json
-from pathlib import Path
-import sys
 import os
-from typing import Optional
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -5907,7 +5935,7 @@ Examples:
     return parser.parse_args()
 
 
-def parse_metadata(metadata_str: str) -> Optional[dict]:
+def parse_metadata(metadata_str: str) -> dict | None:
     """Parse metadata JSON string."""
     if not metadata_str:
         return None
@@ -5978,13 +6006,13 @@ async def ingest_directory(
     pipeline: IngestionPipeline,
     recursive: bool,
     batch_size: int,
-    file_extensions: Optional[list[str]] = None,
+    file_extensions: list[str] | None = None,
     verbose: bool = False,
 ) -> IngestionResult:
     """Ingest all documents from a directory."""
     print(f"\nProcessing directory: {directory_path}")
     if recursive:
-        print(f"Recursive scan: enabled")
+        print("Recursive scan: enabled")
     print("=" * 80)
 
     result = await pipeline.ingest_directory(
@@ -6038,7 +6066,7 @@ async def main():
         QdrantManager.initialize_collections()
         print("Collections initialized.")
 
-    additional_metadata = parse_metadata(args.metadata)
+    parse_metadata(args.metadata)
 
     pipeline = IngestionPipeline(
         chunk_strategy=args.chunk_strategy,
@@ -6083,7 +6111,7 @@ async def main():
                 )
 
         elif args.input_dir:
-            file_extensions: Optional[list[str]] = None
+            file_extensions: list[str] | None = None
             if args.file_extensions:
                 file_extensions = [ext.strip() for ext in args.file_extensions.split(",")]
 
@@ -6142,6 +6170,116 @@ if __name__ == "__main__":
 
 # backend/tests/evaluation/__init__.py
 ```py
+
+```
+
+# backend/tests/unit/test_support_agent.py
+```py
+"""Test LLM integration in SupportAgent."""
+
+from unittest.mock import Mock, patch
+
+import pytest
+
+from app.agent.support_agent import AgentContext, SupportAgent
+from app.config import settings
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_generate_response_with_llm():
+    """Test that _generate_response uses LLM to generate responses."""
+    agent = SupportAgent()
+
+    context = AgentContext(
+        session_id="test-session",
+        user_id=1,
+        conversation_summary="Customer asking about pricing",
+        recent_messages=[
+            {"role": "user", "content": "What are your prices?"},
+        ],
+        business_hours_status="open",
+    )
+
+    with patch("app.agent.support_agent.ChatOpenAI") as mock_llm_class:
+        mock_llm = Mock()
+        mock_response = Mock()
+        mock_response.content = "Our pricing starts at $99/month for basic plans."
+        mock_llm.invoke.return_value = mock_response
+        mock_llm_class.return_value = mock_llm
+
+        response = agent._generate_response(
+            query="What are your prices?",
+            knowledge="Basic plan: $99/month\nPremium plan: $199/month",
+            context=context,
+        )
+
+        mock_llm_class.assert_called_once_with(
+            model=settings.LLM_MODEL_PRIMARY,
+            temperature=settings.LLM_TEMPERATURE,
+            api_key=settings.OPENROUTER_API_KEY,
+            base_url=settings.OPENROUTER_BASE_URL,
+        )
+
+        mock_llm.invoke.assert_called_once()
+        assert response == "Our pricing starts at $99/month for basic plans."
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_generate_response_without_knowledge():
+    """Test response generation when no knowledge is retrieved."""
+    agent = SupportAgent()
+
+    context = AgentContext(
+        session_id="test-session",
+        user_id=1,
+        conversation_summary="",
+        recent_messages=[],
+        business_hours_status="open",
+    )
+
+    with patch("app.agent.support_agent.ChatOpenAI") as mock_llm_class:
+        mock_llm = Mock()
+        mock_response = Mock()
+        mock_response.content = "I don't have specific information about that topic."
+        mock_llm.invoke.return_value = mock_response
+        mock_llm_class.return_value = mock_llm
+
+        response = agent._generate_response(
+            query="Tell me about unicorns",
+            knowledge="",
+            context=context,
+        )
+
+        assert response == "I don't have specific information about that topic."
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_generate_response_llm_fallback():
+    """Test that _generate_response falls back to template on LLM error."""
+    agent = SupportAgent()
+
+    context = AgentContext(
+        session_id="test-session",
+        user_id=1,
+        conversation_summary="",
+        recent_messages=[],
+        business_hours_status="open",
+    )
+
+    with patch("app.agent.support_agent.ChatOpenAI") as mock_llm_class:
+        mock_llm_class.side_effect = Exception("API Error")
+
+        response = agent._generate_response(
+            query="What are your prices?",
+            knowledge="Basic plan: $99/month",
+            context=context,
+        )
+
+        assert "Based on our knowledge base" in response
+        assert "Basic plan: $99/month" in response
 
 ```
 
@@ -15408,7 +15546,7 @@ export const useChatStore = create<ChatStore>()(
           return;
         }
 
-        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/chat/ws';
         console.log(`[WebSocket] Attempting connection to: ${wsUrl}?session_id=${sessionId}`);
 
         const wsClient = new WebSocketClient({
