@@ -277,3 +277,75 @@ Stores active session state for low-latency access.
     *   Backend Docs: `http://localhost:8000/docs`
 
 This document accurately reflects the codebase structure and logic as of **Phase 9**. Use this as the reference for all future architectural decisions.
+
+---
+
+# Code Validation Report
+
+**Status:** `VALIDATED`
+**Date:** January 1, 2026
+**Review Scope:** Remediation of Critical Blockers (RAG Type Mismatch, Ghost WebSocket)
+
+---
+
+## 1. Validation: RAG Retriever (`backend/app/rag/retriever.py`)
+
+**Diagnosis:** The previous implementation caused a `TypeError` by passing a `List[float]` (vector) to a LangChain method expecting a `str` (query).
+
+**Review of Updated Code:**
+The updated code abandons the LangChain wrapper method in favor of the **Native Qdrant Client** (`QdrantManager.get_client().query_points(...)`).
+
+*   **✅ Type Safety Resolved:** The native `query_points` method explicitly accepts a `query` parameter which can be a vector (List[float]). This aligns perfectly with the output of `embedding_generator.generate_single(query)`.
+*   **✅ Native API Usage:** Switching to `client.query_points` is the correct approach for Qdrant Client v1.10+. It returns a `QueryResponse` object containing `points`, which the code correctly accesses via `results.points`.
+*   **✅ Logic Flow:**
+    1.  Generate Embedding (Async).
+    2.  Construct Filter (Language=en).
+    3.  Execute Search (Native).
+    4.  Return Scored Points.
+    This flow is logically sound and robust.
+
+**Assessment:** **APPROVED.** The blocker is resolved.
+
+---
+
+## 2. Validation: Chat Store (`frontend/src/stores/chatStore.ts`)
+
+**Diagnosis:** The `WebSocketClient` class existed in isolation ("Ghost Code"). The frontend relied solely on REST, making real-time "Thinking" states impossible.
+
+**Review of Updated Code:**
+The updated store fully integrates the WebSocket lifecycle.
+
+*   **✅ Instantiation:** `socketClient` is now a state property, initialized within `connectWebSocket`.
+*   **✅ Lifecycle Wiring:**
+    *   `createSession` now triggers `connectWebSocket` automatically.
+    *   `disconnect` properly cleans up the socket connection.
+*   **✅ Hybrid Reliability:** The `sendMessage` action implements a **Hybrid Strategy**:
+    ```typescript
+    if (socketClient && socketClient.getStatus() === 'connected') {
+        socketClient.sendChatMessage(content);
+    } else {
+        // Fallback to REST API
+        // ...
+    }
+    ```
+    This is an excellent architectural choice for production reliability. If the socket drops, the user can still chat via REST.
+*   **✅ Event Handling:** The `handleWSMessage` switch statement correctly routes:
+    *   `'thought'` → `setThinking(true)` (Enables the UX vision).
+    *   `'response'` → Adds message + `setThinking(false)`.
+
+**Assessment:** **APPROVED.** The "Ghost" client is now fully operational.
+
+---
+
+## 3. Final Conclusion
+
+The submitted code successfully remediates the two critical blockers identified in the implementation plan.
+
+1.  **RAG Pipeline** is now type-safe and functional using the native Qdrant API.
+2.  **Frontend** is now capable of real-time streaming and "Thinking" visualization, fulfilling the "Avant-Garde" UX requirement.
+
+**System Status:** `READY FOR DEPLOYMENT / INTEGRATION TESTING`
+
+---
+
+
