@@ -350,3 +350,39 @@ All critical issues identified in Project_Review_Update.md have been validated a
 3. ✅ Thinking State Displacement - "Scanning..." visualization now visible
 4. ✅ Semantic Color Enforcement - ConfidenceRing uses semantic color classes
 Codebase is now functional and ready for production deployment.
+
+---
+
+$ npm run build
+
+> singapore-smb-support-agent-frontend@0.1.0 build
+> next build
+
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Unrecognized key(s) in object: 'fontLoaders' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 15.5.9
+   - Experiments (use with caution):
+     · fontLoaders
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 8.5s
+ ✓ Linting and checking validity of types    
+ ✓ Collecting page data    
+ ✓ Generating static pages (4/4)
+ ✓ Collecting build traces    
+ ✓ Finalizing page optimization    
+
+Route (app)                                 Size  First Load JS    
+┌ ○ /                                    20.6 kB         123 kB
+└ ○ /_not-found                            994 B         103 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/255-cb395327542b56ef.js       45.9 kB
+  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  └ other shared chunks (total)          1.93 kB
+
+
+○  (Static)  prerendered as static content
+
+
