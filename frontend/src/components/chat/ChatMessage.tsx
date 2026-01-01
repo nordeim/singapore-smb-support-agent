@@ -37,7 +37,6 @@ export function ChatMessage({ message, showSources = false }: ChatMessageProps) 
       )}
 
       <div className={`max-w-[80%] space-y-2 ${isUser ? 'text-right' : 'text-left'}`}>
-        {isThinking && <ThinkingState isThinking={true} />}
 
         <div
           className={`rounded-lg px-4 py-3 ${

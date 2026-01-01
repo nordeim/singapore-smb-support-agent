@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from './ChatMessage';
+import { ThinkingState } from './ThinkingState';
 import { TypingIndicator } from './TypingIndicator';
 import { useChatStore } from '@/stores/chatStore';
 
 export function ChatMessages() {
-  const { messages, isTyping } = useChatStore();
+  const { messages, isTyping, isThinking } = useChatStore();
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -35,6 +36,8 @@ export function ChatMessages() {
             showSources
           />
         ))}
+
+        {isThinking && <ThinkingState isThinking={true} />}
 
         {isTyping && <TypingIndicator />}
 

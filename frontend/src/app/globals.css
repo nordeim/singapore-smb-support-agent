@@ -9,9 +9,9 @@
     --font-inter: 'Inter', sans-serif;
 
     /* Trust Colors - Singapore Professional */
-    --semantic-green: 142 211 142;    /* #8ED38E - Verified */
-    --semantic-amber: 251 191 36;     /* #FBBF24 - Warning */
-    --semantic-red: 220 38 38;         /* #DC2626 - Error */
+    --semantic-green: 120 45% 69%;    /* Medium Green - Trust */
+    --semantic-amber: 40 75% 65%;     /* Amber - Warning */
+    --semantic-red: 0 70% 50%;         /* Red - Error */
 
     /* Enhanced Radius - Sharp, Professional */
     --radius: 0.125rem;  /* 2px instead of 8px */

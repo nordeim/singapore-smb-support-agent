@@ -201,8 +201,9 @@ class LongTermMemory:
             ticket.status = status
             ticket.assigned_to = assigned_to
             ticket.updated_at = datetime.utcnow()
+            await self.db.commit()
+            await self.db.refresh(ticket)
         return ticket
-        await self.db.commit()
 
     async def expire_user_data(self, user_id: int) -> None:
         """Mark user data for PDPA-compliant expiry (soft delete)."""

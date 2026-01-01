@@ -11,9 +11,9 @@ export interface ConfidenceRingProps {
 
 export function ConfidenceRing({ children, confidence, size = 'md' }: ConfidenceRingProps) {
   const getRingColor = () => {
-    if (confidence >= 0.85) return 'ring-green-500';
-    if (confidence >= 0.70) return 'ring-amber-500';
-    return 'ring-red-500 ring-opacity-0 ring-offset-0';
+    if (confidence >= 0.85) return 'ring-trust-error';
+    if (confidence >= 0.70) return 'ring-trust-amber';
+    return 'ring-trust-green ring-opacity-0 ring-offset-0';
   };
 
   const ringColor = getRingColor();
