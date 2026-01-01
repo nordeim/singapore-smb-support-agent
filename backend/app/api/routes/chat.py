@@ -1,6 +1,5 @@
 """Chat API routes with WebSocket support for Singapore SMB Support Agent."""
 
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -15,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.support_agent import get_support_agent
 from app.dependencies import get_db, get_memory_manager
 from app.models.schemas import ChatRequest, ChatResponse, SourceCitation
+from app.rag.pipeline import rag_pipeline
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 security = HTTPBearer(auto_error=False)
@@ -80,7 +80,7 @@ async def chat(
         user_id = session_data.get("user_id")
 
         agent = await get_support_agent(
-            rag_pipeline=None,
+            rag_pipeline=rag_pipeline,
             memory_manager=memory_manager,
             db=db,
         )
@@ -155,7 +155,7 @@ async def websocket_chat(
         await manager.connect(session_id, websocket)
 
         agent = await get_support_agent(
-            rag_pipeline=None,
+            rag_pipeline=rag_pipeline,
             memory_manager=memory_manager,
             db=db,
             ws_manager=manager,

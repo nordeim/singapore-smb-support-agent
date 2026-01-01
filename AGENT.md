@@ -1,7 +1,7 @@
 # AGENT.md
 
 **Project:** Singapore SMB Customer Support AI Agent
-**Version:** 1.1.0 (Production Ready)
+**Version:** 1.2.0 (Production Ready)
 **Last Updated:** January 1, 2026
 **Context:** Singapore Business (GMT+8) | PDPA Compliant | Hybrid RAG
 
@@ -266,7 +266,36 @@ All critical issues have been resolved. The system now features:
 
 ---
 
-## 10. DEVELOPER GUIDELINES
+## 11. TECHNICAL DEBT NOTES
+
+### 11.1 AsyncQdrantClient Migration
+**Status:** Using synchronous `QdrantClient` in async context
+**Acceptable For:** MVP / Low-load production
+**Migration Path:** Refactor to `AsyncQdrantClient` for high-concurrency deployments
+
+**Current Implementation:**
+- File: `backend/app/rag/qdrant_client.py`
+- Client: `QdrantClient` (synchronous)
+- Usage: Called inside async methods without executor wrapper
+
+**Impact Analysis:**
+- FastAPI threadpool handles blocking calls, making it workable for MVP
+- Under high concurrency (10+ simultaneous requests), synchronous I/O blocks event loop
+- This degrades throughput and increases response latency
+
+**Migration Steps (When Required):**
+1. Replace `QdrantClient` import with `AsyncQdrantClient`
+2. Update `QdrantManager.get_client()` to return async client
+3. Change all `client.query_points()` calls to `await client.query_points()`
+4. Test async client behavior under load
+5. Compare performance metrics before/after migration
+
+**Complexity:** Medium (requires async/await refactoring of all Qdrant calls)
+**Priority:** LOW (Current implementation is functional, optimization only)
+
+---
+
+## 12. DEVELOPER GUIDELINES
 
 ### Backend Development
 *   **LLM Integration:** Always use `ChatOpenAI` from `langchain_openai` with proper error handling

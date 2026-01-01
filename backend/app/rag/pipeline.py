@@ -1,11 +1,10 @@
 """Main RAG pipeline orchestrator."""
 
-
 from app.config import settings
 from app.rag.context_compress import ContextCompressor
 from app.rag.query_transform import QueryTransformer
 from app.rag.reranker import BGEReranker
-from app.rag.retriever import HybridRetriever
+from app.rag.retriever import DenseRetriever
 
 
 class RAGPipeline:
@@ -14,7 +13,7 @@ class RAGPipeline:
     def __init__(self):
         """Initialize RAG pipeline components."""
         self.query_transformer = QueryTransformer()
-        self.retriever = HybridRetriever()
+        self.retriever = DenseRetriever()
         self.reranker = BGEReranker(top_n=settings.RERANK_TOP_N)
         self.compressor = ContextCompressor(token_budget=settings.CONTEXT_TOKEN_BUDGET)
 
@@ -28,7 +27,7 @@ class RAGPipeline:
         transform_result = await self.query_transformer.transform(query)
         transformed_query = transform_result["rewitten"]
 
-        docs = await self.retriever.hybrid_search(transformed_query)
+        docs = await self.retriever.dense_search(transformed_query)
         reranked_docs = await self.reranker.async_rerank(transformed_query, docs)
 
         context_result = self.compressor.compress(
@@ -64,7 +63,7 @@ class RAGPipeline:
         """Simple retrieval for context without full pipeline."""
         docs = await self.reranker.async_rerank(
             query,
-            await self.retriever.hybrid_search(query),
+            await self.retriever.dense_search(query),
         )
 
         context = "\n\n".join([doc["text"] for doc in docs[:3]])
