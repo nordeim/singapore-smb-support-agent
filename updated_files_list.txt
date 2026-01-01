@@ -1,6 +1,0 @@
-backend/app/memory/long_term.py
-frontend/src/app/globals.css
-frontend/src/components/chat/ChatMessage.tsx
-frontend/src/components/chat/ChatMessages.tsx
-frontend/src/components/ui/confidence-ring.tsx
-frontend/tailwind.config.ts

@@ -1,135 +1,3 @@
-# backend/.env
-```txt
-# ══════════════════════════════════════════════════════════════════════════════
-# Singapore SMB Support AI Agent - Environment Variables
-# ══════════════════════════════════════════════════════════════════════════════
-#
-# Copy this file to .env and fill in your actual values.
-# Never commit .env to version control!
-
-# ─────────────────────────────────────────────────────────────────────────────
-# API Keys & LLM Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-# Get your OpenRouter API key from https://openrouter.ai/keys
-OPENROUTER_API_KEY=sk-or-v1-your-own-key
-
-# Optional: Direct OpenAI API key for embeddings
-# Leave empty if using OpenRouter for everything
-OPENAI_API_KEY=
-
-# OpenRouter base URL (typically https://openrouter.ai/api/v1)
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Database Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-POSTGRES_DB=support_agent
-POSTGRES_USER=agent_user
-POSTGRES_PASSWORD=dev_password_only
-DATABASE_URL=postgresql://agent_user:dev_password_only@localhost:5432/support_agent
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Redis Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-REDIS_URL=redis://localhost:6379
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Qdrant Vector Database Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-QDRANT_URL=http://localhost:6333
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Security
-# ─────────────────────────────────────────────────────────────────────────────
-# Generate a secure secret key for JWT tokens
-# openssl rand -hex 32
-#SECRET_KEY=generate-a-secure-random-string-here
-SECRET_KEY=fd9ae6eaef1b41968354c261ea43e5fa650889be878c2b3e78d350f7e1408099
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Application Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-ENVIRONMENT=development
-
-# Frontend Configuration
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Business Context (Singapore)
-# ─────────────────────────────────────────────────────────────────────────────
-# Timezone: Asia/Singapore (default)
-TIMEZONE=Asia/Singapore
-
-# Business Hours (24-hour format)
-BUSINESS_HOURS_START=09:00
-BUSINESS_HOURS_END=18:00
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PDPA Compliance Settings
-# ─────────────────────────────────────────────────────────────────────────────
-# Default data retention period in days
-DATA_RETENTION_DAYS=30
-
-# Session TTL in minutes
-SESSION_TTL_MINUTES=30
-
-# ─────────────────────────────────────────────────────────────────────────────
-# RAG Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-# Embedding model: text-embedding-3-small (1536 dimensions)
-EMBEDDING_MODEL=text-embedding-3-small
-
-# Reranker model: BAAI/bge-reranker-v2-m3 (local)
-RERANKER_MODEL=BAAI/bge-reranker-v2-m3
-
-# Chunking settings
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
-CHUNK_SIMILARITY_THRESHOLD=0.5
-
-# Retrieval settings
-RETRIEVAL_TOP_K=50
-RERANK_TOP_N=5
-CONTEXT_TOKEN_BUDGET=4000
-
-# ─────────────────────────────────────────────────────────────────────────────
-# LLM Model Configuration (via OpenRouter)
-# ─────────────────────────────────────────────────────────────────────────────
-# Primary model for most queries
-#LLM_MODEL_PRIMARY=openai/gpt-4o-mini
-LLM_MODEL_PRIMARY=mistralai/devstral-2512:free
-
-# Fallback model for complex queries
-#LLM_MODEL_FALLBACK=openai/gpt-4o
-LLM_MODEL_FALLBACK=mistralai/devstral-2512:free
-
-# Temperature for response generation
-LLM_TEMPERATURE=0.7
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Performance & Scaling
-# ─────────────────────────────────────────────────────────────────────────────
-# Maximum concurrent requests
-MAX_CONCURRENT_REQUESTS=100
-
-# Request timeout in seconds
-REQUEST_TIMEOUT=30
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Feature Flags
-# ─────────────────────────────────────────────────────────────────────────────
-# Enable debug logging
-DEBUG=false
-
-# Enable RAG evaluation metrics
-ENABLE_RAGAS_EVALUATION=false
-
-# Enable sentiment analysis
-ENABLE_SENTIMENT_ANALYSIS=true
-
-```
-
 # backend/pyproject.toml
 ```toml
 [project]
@@ -993,8 +861,9 @@ class LongTermMemory:
             ticket.status = status
             ticket.assigned_to = assigned_to
             ticket.updated_at = datetime.utcnow()
+            await self.db.commit()
+            await self.db.refresh(ticket)
         return ticket
-        await self.db.commit()
 
     async def expire_user_data(self, user_id: int) -> None:
         """Mark user data for PDPA-compliant expiry (soft delete)."""
@@ -14072,7 +13941,9 @@ const config = {
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
+        ring: {
+          DEFAULT: "hsl(var(--ring))",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
@@ -14233,9 +14104,9 @@ export default function Home() {
     --font-inter: 'Inter', sans-serif;
 
     /* Trust Colors - Singapore Professional */
-    --semantic-green: 142 211 142;    /* #8ED38E - Verified */
-    --semantic-amber: 251 191 36;     /* #FBBF24 - Warning */
-    --semantic-red: 220 38 38;         /* #DC2626 - Error */
+    --semantic-green: 120 45% 69%;    /* Medium Green - Trust */
+    --semantic-amber: 40 75% 65%;     /* Amber - Warning */
+    --semantic-red: 0 70% 50%;         /* Red - Error */
 
     /* Enhanced Radius - Sharp, Professional */
     --radius: 0.125rem;  /* 2px instead of 8px */
@@ -14733,9 +14604,9 @@ export interface ConfidenceRingProps {
 
 export function ConfidenceRing({ children, confidence, size = 'md' }: ConfidenceRingProps) {
   const getRingColor = () => {
-    if (confidence >= 0.85) return 'ring-green-500';
-    if (confidence >= 0.70) return 'ring-amber-500';
-    return 'ring-red-500 ring-opacity-0 ring-offset-0';
+    if (confidence >= 0.85) return 'ring-trust-green';
+    if (confidence >= 0.70) return 'ring-trust-amber';
+    return 'ring-trust-red';
   };
 
   const ringColor = getRingColor();
@@ -14900,16 +14771,12 @@ export function ChatWidget() {
 import * as React from 'react';
 import { Bot, User } from 'lucide-react';
 import { format } from 'date-fns';
-import { Separator } from '@/components/ui/separator';
 import { ConfidenceRing } from '@/components/ui/confidence-ring';
-import { ThinkingState } from './ThinkingState';
 import type { ChatMessageProps } from '@/types';
-import { useChatStore } from '@/stores/chatStore';
 
 export function ChatMessage({ message, showSources = false }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
-  const { isThinking } = useChatStore();
 
   if (isSystem) {
     return (
@@ -14934,7 +14801,6 @@ export function ChatMessage({ message, showSources = false }: ChatMessageProps) 
       )}
 
       <div className={`max-w-[80%] space-y-2 ${isUser ? 'text-right' : 'text-left'}`}>
-        {isThinking && <ThinkingState isThinking={true} />}
 
         <div
           className={`rounded-lg px-4 py-3 ${
@@ -14991,11 +14857,12 @@ export function ChatMessage({ message, showSources = false }: ChatMessageProps) 
 import * as React from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from './ChatMessage';
+import { ThinkingState } from './ThinkingState';
 import { TypingIndicator } from './TypingIndicator';
 import { useChatStore } from '@/stores/chatStore';
 
 export function ChatMessages() {
-  const { messages, isTyping } = useChatStore();
+  const { messages, isTyping, isThinking } = useChatStore();
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -15025,6 +14892,8 @@ export function ChatMessages() {
             showSources
           />
         ))}
+
+        {isThinking && <ThinkingState isThinking={true} />}
 
         {isTyping && <TypingIndicator />}
 
@@ -15232,28 +15101,37 @@ import type { BusinessHours, ChatHeaderProps } from '@/types';
 
 export function ChatHeader() {
   const { connectionStatus } = useChatStore();
+  const [hours, setHours] = React.useState<BusinessHours | null>(null);
 
-  const getBusinessHours = (): BusinessHours => {
-    const now = new Date();
-    const hour = now.getHours();
-    const isBusinessHours = hour >= 9 && hour < 18;
-    const day = now.toLocaleDateString('en-SG', { weekday: 'long' });
-    const time = now.toLocaleTimeString('en-SG', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  React.useEffect(() => {
+    const getBusinessHours = (): BusinessHours => {
+      const now = new Date();
+      const hour = now.getHours();
+      const isBusinessHours = hour >= 9 && hour < 18;
+      const time = now.toLocaleTimeString('en-SG', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
-    return {
-      is_open: isBusinessHours,
-      business_hours: '9:00 AM - 6:00 PM (SGT)',
-      current_time: time,
-      timezone: 'Asia/Singapore',
+      return {
+        is_open: isBusinessHours,
+        business_hours: '9:00 AM - 6:00 PM (SGT)',
+        current_time: time,
+        timezone: 'Asia/Singapore',
+      };
     };
-  };
 
-  const hours = getBusinessHours();
+    setHours(getBusinessHours());
+
+    const interval = setInterval(() => {
+      setHours(getBusinessHours());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const isConnected = connectionStatus === 'connected';
-  const isOnline = hours.is_open && isConnected;
+  const isOnline = hours?.is_open && isConnected;
   const statusColor = isOnline ? 'bg-green-500' : 'bg-amber-500';
 
   return (
@@ -15283,15 +15161,17 @@ export function ChatHeader() {
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Clock className="w-4 h-4" />
-            <span>{hours.business_hours}</span>
+            <span>{hours?.business_hours || '9:00 AM - 6:00 PM (SGT)'}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Globe className="w-4 h-4" />
-            <span>{hours.timezone}</span>
+            <span>{hours?.timezone || 'Asia/Singapore'}</span>
           </div>
-          <div className="text-xs">
-            {hours.current_time}
-          </div>
+          {hours && (
+            <div className="text-xs">
+              {hours.current_time}
+            </div>
+          )}
         </div>
       </div>
     </CardHeader>
@@ -15529,6 +15409,7 @@ export const useChatStore = create<ChatStore>()(
         }
 
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+        console.log(`[WebSocket] Attempting connection to: ${wsUrl}?session_id=${sessionId}`);
 
         const wsClient = new WebSocketClient({
           url: wsUrl,
@@ -15540,13 +15421,32 @@ export const useChatStore = create<ChatStore>()(
             set({ connectionStatus: 'connected', isConnected: true });
             console.log('[WebSocket] Connected');
           },
-          onError: (error) => {
-            console.error('[WebSocket] Error:', error);
+          onError: (error: any, details?: any) => {
+            const errorInfo = {
+              type: error?.type || details?.type || 'unknown',
+              message: error?.message || details?.message || 'No message provided',
+              timestamp: new Date().toISOString(),
+            };
+            
+            if (details?.target) {
+              (errorInfo as any).readyState = details.target.readyState;
+              (errorInfo as any).url = details.target.url;
+              (errorInfo as any).protocol = details.target.protocol;
+            }
+            
+            console.error('[WebSocket] Error:', errorInfo);
             set({ connectionStatus: 'error', isConnected: false });
           },
-          onClose: () => {
+          onClose: (event: CloseEvent) => {
+            const closeInfo = {
+              code: event.code,
+              reason: event.reason || 'No reason provided',
+              wasClean: event.wasClean,
+              timestamp: new Date().toISOString(),
+            };
+            
+            console.log('[WebSocket] Closed:', closeInfo);
             set({ connectionStatus: 'disconnected', isConnected: false });
-            console.log('[WebSocket] Disconnected');
           },
           reconnectInterval: 3000,
           maxReconnectAttempts: 10,
@@ -15643,11 +15543,19 @@ export const useChatStore = create<ChatStore>()(
         setTyping(true);
 
         try {
-          // Use WebSocket if available, otherwise fall back to REST
-          if (socketClient && socketClient.getStatus() === 'connected') {
+          // Use WebSocket if available and not disabled, otherwise fall back to REST
+          if (socketClient && 
+              socketClient.getStatus() === 'connected' && 
+              !socketClient.isWebSocketDisabled()) {
             socketClient.sendChatMessage(content);
           } else {
             // Fallback to REST API
+            if (socketClient?.isWebSocketDisabled()) {
+              console.info('[WebSocket] Using REST API fallback (WebSocket disabled)');
+            } else {
+              console.info('[WebSocket] Using REST API fallback (not connected)');
+            }
+            
             const { chatService } = await import('@/lib/api');
 
             const request: ChatRequest = {
@@ -15985,11 +15893,22 @@ import type {
   WSError,
 } from '@/types';
 
+export interface WebSocketErrorDetails {
+  type: string;
+  timestamp: string;
+  target?: {
+    url: string;
+    readyState: string;
+    protocol: string;
+  };
+  message: string;
+}
+
 export interface WebSocketClientOptions {
   url: string;
   session_id: string;
   onMessage?: (message: WSMessage) => void;
-  onError?: (error: Event) => void;
+  onError?: (error: Event, details?: WebSocketErrorDetails) => void;
   onClose?: (event: CloseEvent) => void;
   onOpen?: () => void;
   reconnectInterval?: number;
@@ -16008,6 +15927,7 @@ export class WebSocketClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempts = 0;
+  private consecutiveFailures = 0;
 
   private readonly options: WebSocketClientOptions & {
     reconnectInterval: number;
@@ -16015,6 +15935,7 @@ export class WebSocketClient {
     heartbeatInterval: number;
   };
   private _status: ConnectionStatus = 'disconnected';
+  private isDisabled = false;
 
   constructor(options: WebSocketClientOptions) {
     this.options = {
@@ -16040,19 +15961,67 @@ export class WebSocketClient {
   }
 
   /**
+   * Get human-readable ready state
+   */
+  private getReadyStateLabel(state: number): string {
+    switch (state) {
+      case WebSocket.CONNECTING:
+        return 'CONNECTING';
+      case WebSocket.OPEN:
+        return 'OPEN';
+      case WebSocket.CLOSING:
+        return 'CLOSING';
+      case WebSocket.CLOSED:
+        return 'CLOSED';
+      default:
+        return 'UNKNOWN';
+    }
+  }
+
+  /**
+   * Get meaningful error message
+   */
+  private getErrorMessage(error: any): string {
+    if (error?.message) return error.message;
+    if (error?.error?.message) return error.error.message;
+    
+    const target = error?.target;
+    if (target instanceof WebSocket) {
+      if (target.readyState === WebSocket.CLOSED) {
+        return 'Connection closed unexpectedly';
+      }
+      if (target.readyState === WebSocket.CLOSING) {
+        return 'Connection closing';
+      }
+      if (target.readyState === WebSocket.CONNECTING) {
+        return 'Failed to establish connection';
+      }
+    }
+    
+    return 'Unknown WebSocket error';
+  }
+
+  /**
    * Connect to WebSocket server
    */
   connect() {
+    if (this.isDisabled) {
+      console.warn('[WebSocket] Cannot connect: WebSocket is disabled for this session');
+      return;
+    }
+
     this.setStatus('connecting');
     this.reconnectAttempts = 0;
 
     try {
+      console.log(`[WebSocket] Connecting to: ${this.options.url}?session_id=${this.options.session_id}`);
       this.ws = new WebSocket(
         `${this.options.url}?session_id=${this.options.session_id}`,
       );
 
       this.setupEventListeners();
     } catch (error) {
+      console.error('[WebSocket] Connection failed:', error);
       this.setStatus('error');
       this.options.onError?.(
         new ErrorEvent('error', { error } as any),
@@ -16070,6 +16039,8 @@ export class WebSocketClient {
     this.ws.onopen = () => {
       this.setStatus('connected');
       this.reconnectAttempts = 0;
+      this.consecutiveFailures = 0;
+      console.log('[WebSocket] Connection established successfully');
       this.options.onOpen?.();
       this.startHeartbeat();
     };
@@ -16090,17 +16061,42 @@ export class WebSocketClient {
 
     this.ws.onerror = (error) => {
       this.setStatus('error');
-      this.options.onError?.(error);
+      
+      const errorDetails: WebSocketErrorDetails = {
+        type: error?.type || 'unknown',
+        timestamp: new Date().toISOString(),
+        target: error?.target instanceof WebSocket ? {
+          url: error.target.url,
+          readyState: this.getReadyStateLabel(error.target.readyState),
+          protocol: error.target.protocol
+        } : undefined,
+        message: this.getErrorMessage(error),
+      };
+      
+      console.error('[WebSocket] Connection error:', errorDetails);
+      this.options.onError?.(error as any, errorDetails);
     };
 
     this.ws.onclose = (event) => {
       this.setStatus('disconnected');
       this.stopHeartbeat();
-      this.options.onClose?.(event);
-
+      
       if (!event.wasClean) {
-        this.scheduleReconnect();
+        this.consecutiveFailures++;
+        
+        console.warn(`[WebSocket] Unclean close (code: ${event.code}, reason: ${event.reason || 'none'}). Consecutive failures: ${this.consecutiveFailures}`);
+        
+        if (this.consecutiveFailures >= 3) {
+          console.error('[WebSocket] Too many consecutive failures. Disabling WebSocket for this session.');
+          this.disable();
+        } else {
+          this.scheduleReconnect();
+        }
+      } else {
+        this.consecutiveFailures = 0;
       }
+      
+      this.options.onClose?.(event);
     };
   }
 
@@ -16153,20 +16149,59 @@ export class WebSocketClient {
   }
 
   /**
-   * Schedule reconnection attempt
+   * Schedule reconnection attempt with exponential backoff
    */
   private scheduleReconnect() {
     if (
+      this.isDisabled ||
       this.reconnectAttempts >= this.options.maxReconnectAttempts ||
       this._status === 'connected'
     ) {
       return;
     }
 
+    const backoffDelay = Math.min(
+      this.options.reconnectInterval * Math.pow(2, this.reconnectAttempts),
+      30000
+    );
+
+    console.warn(`[WebSocket] Reconnection attempt ${this.reconnectAttempts + 1}/${this.options.maxReconnectAttempts} in ${backoffDelay}ms`);
+
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
       this.connect();
-    }, this.options.reconnectInterval);
+    }, backoffDelay);
+  }
+
+  /**
+   * Disable WebSocket (mark as unavailable for this session)
+   */
+  disable() {
+    this.isDisabled = true;
+    this.stopReconnect();
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.setStatus('error');
+    console.warn('[WebSocket] Disabled due to persistent connection failures. REST API will be used instead.');
+  }
+
+  /**
+   * Check if WebSocket is disabled
+   */
+  isWebSocketDisabled(): boolean {
+    return this.isDisabled;
+  }
+
+  /**
+   * Re-enable WebSocket (for manual retry)
+   */
+  enable() {
+    this.isDisabled = false;
+    this.consecutiveFailures = 0;
+    this.reconnectAttempts = 0;
+    console.log('[WebSocket] Re-enabled. Ready for connection.');
   }
 
   /**
