@@ -163,4 +163,175 @@ We use a sophisticated retrieval stack, not a basic wrapper.
 2.  Advanced Analytics Dashboard.
 3.  Voice Input Integration.
 
-*End of Briefing. You are now authorized to contribute.*
+---
+
+# Codebase Analysis Assessment Report
+
+**Project:** Singapore SMB Customer Support AI Agent
+**Version:** 1.0.1 (Codebase Audit)
+**Date:** January 1, 2026
+**Auditor:** Frontend Architect & Avant-Garde UI Designer
+
+## 1. Executive Summary
+
+The codebase demonstrates a high level of architectural maturity and strict adherence to the "Avant-Garde" design philosophy. The separation of concerns between `ingestion`, `rag`, `memory`, and `agent` modules is pristine. The frontend implements the requested "Utilitarian Elegance" with `2px` radii and correct semantic color usage.
+
+However, a **Critical Logic Gap** was identified in the Agent's core processing logic. While the supporting infrastructure (RAG, Memory, WebSocket) is production-ready, the actual *response generation* logic in `SupportAgent` is currently a static placeholder/stub, effectively "lobotomizing" the AI. Additionally, a routing mismatch exists in the WebSocket configuration.
+
+## 2. Implementation vs. Design Goals
+
+| Feature | Design Goal | Actual Implementation | Status |
+| :--- | :--- | :--- | :--- |
+| **Visual Identity** | "Avant-Garde" (2px radius, Manrope/Inter). | **Perfect.** `globals.css` defines `--radius: 0.125rem` and `tailwind.config.ts` enforces it. | ✅ |
+| **Trust Colors** | Semantic HSL variables (Green/Amber/Red). | **Verified.** `globals.css` uses valid HSL syntax (`120 45% 69%`), fixing previous RGB issues. | ✅ |
+| **RAG Pipeline** | Hybrid Search (Dense + Sparse). | **Verified.** `HybridRetriever` uses native `qdrant_client` correctly. | ✅ |
+| **Memory** | Hierarchical (Redis + Postgres). | **Verified.** `MemoryManager` correctly orchestrates dual-write and retention. | ✅ |
+| **Agent "Brain"** | LLM-based generation using Pydantic AI. | **CRITICAL FAILURE.** The `SupportAgent` class contains hardcoded string templates instead of LLM calls. | ❌ |
+| **Real-time** | WebSocket thought streaming. | **Implemented.** Infrastructure exists, but URL path is incorrect in frontend config. | ⚠️ |
+
+## 3. Critical Findings ("The Kill List")
+
+### 🔴 1. The "Lobotomized Agent" (Backend)
+**File:** `backend/app/agent/support_agent.py`
+**Method:** `_generate_response` (Lines 180-192)
+
+**Analysis:**
+The design calls for an LLM (GPT-4o) to synthesize the response. However, the current code is a mock implementation:
+```python
+def _generate_response(self, query: str, knowledge: str, context: AgentContext) -> str:
+    """Generate response using system prompt and knowledge."""
+    if knowledge:
+        return f"""Based on our knowledge base, here's what I can help you with:\n\n{knowledge}..."""
+    else:
+        return """I couldn't find specific information..."""
+```
+**Impact:** The agent will **never** answer questions intelligently. It will simply regurgitate raw RAG chunks or apologize. The Pydantic AI integration described in the architecture is missing from this specific file.
+
+### 🟠 2. WebSocket Route Mismatch (Frontend)
+**File:** `frontend/src/stores/chatStore.ts` (Line 115) vs `backend/app/main.py`
+
+**Analysis:**
+*   **Backend:** Defines API prefix as `/api/v1` in `main.py`, and chat router as `/chat` with websocket at `/ws`.
+    *   *Resulting URL:* `ws://localhost:8000/api/v1/chat/ws`
+*   **Frontend:** Defaults to:
+    ```typescript
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+    ```
+    *   *Resulting URL:* `ws://localhost:8000/chat/ws` (Missing `/api/v1`)
+**Impact:** WebSocket connection will fail with `404 Not Found` in the default development environment unless the env var is manually corrected.
+
+### 🟢 3. Phantom Update Fix Verification
+**File:** `backend/app/memory/long_term.py`
+**Analysis:** The previous "Phantom Update" bug (returning before commit) has been **verified as FIXED** in the provided file bundle.
+```python
+await self.db.commit() # Present before return
+await self.db.refresh(ticket)
+return ticket
+```
+
+---
+
+## 4. Recommendations
+
+1.  **Implant the Brain:** Immediately refactor `SupportAgent._generate_response` to initialize a `ChatOpenAI` client (or Pydantic AI Agent) and call `ainvoke` using the `RESPONSE_GENERATION_PROMPT`.
+2.  **Fix Route Path:** Update `frontend/src/stores/chatStore.ts` default URL to include `/api/v1`.
+3.  **Deploy:** Once #1 is fixed, the system is ready for UAT.
+
+---
+
+# AGENT.md
+
+**Project:** Singapore SMB Customer Support AI Agent
+**Version:** 1.0.2 (Remediation Pending)
+**Context:** Singapore Business (GMT+8) | PDPA Compliant | Hybrid RAG
+
+---
+
+## 1. THE EXECUTIVE MANDATE
+**"We do not build generic chatbots. We build instruments of trust."**
+
+We are building a high-precision support tool for Singapore SMBs. Every pixel and every line of code must demonstrate:
+1.  **Precision:** 2px border radius, strict typing, rigorous error handling.
+2.  **Transparency:** Visualized thinking states, visualized data expiry.
+3.  **Compliance:** Hard 30-minute session limits, strict data minimization.
+
+---
+
+## 2. SYSTEM ARCHITECTURE
+
+### 2.1 The Tech Stack
+*   **Frontend:** Next.js 15, Zustand, Tailwind CSS 3.4 (Semantic HSL).
+*   **Backend:** FastAPI, Python 3.12, SQLAlchemy (Async).
+*   **Intelligence:**
+    *   **Vector:** Qdrant (Native Client, Hybrid Search).
+    *   **LLM:** OpenRouter (GPT-4o-mini).
+    *   **Orchestration:** Pydantic AI / LangChain.
+
+### 2.2 Critical File Map
+*Do not touch files outside these paths without justification.*
+
+```text
+/backend
+├── app/agent/support_agent.py    # [CRITICAL] Needs LLM integration (currently stubbed)
+├── app/rag/retriever.py          # SEARCH: Native Qdrant implementation
+├── app/memory/long_term.py       # DB: SQL Repositories (Verified Fixed)
+└── app/ingestion/pipeline.py     # ETL: MarkItDown -> Chunk -> Embed
+
+/frontend
+├── src/stores/chatStore.ts       # STATE: WebSocket Logic (Fix URL here)
+├── src/components/chat/          # UI:
+│   ├── ChatMessages.tsx          #   - Layouts thinking state
+│   ├── ChatMessage.tsx           #   - Renders ConfidenceRing
+│   └── SessionPulse.tsx          #   - Visualizes PDPA expiry
+└── src/app/globals.css           # VISUAL: Semantic HSL Variables
+```
+
+---
+
+## 3. OPERATIONAL LOGIC
+
+### 3.1 The "Cognitive Transparency" Loop
+We stream state to build trust.
+1.  **Backend:** `SupportAgent` emits `thought` events via WebSocket.
+2.  **Frontend:** `chatStore` catches events -> sets `isThinking` -> `ChatMessages` renders `<ThinkingState />`.
+3.  **Visual:** "Scanning..." -> "Cross-referencing..." -> "Formatting...".
+
+### 3.2 Hybrid RAG Pipeline
+1.  **Retrieve:** `HybridRetriever` combines Dense (Vectors) + Sparse (BM25) via Qdrant.
+2.  **Rerank:** `BGEReranker` (Cross-Encoder) selects top 5.
+3.  **Compress:** `ContextCompressor` fits content into token budget.
+
+### 3.3 PDPA & Memory
+*   **Redis:** Stores active session. TTL hardcoded to 30 mins (`app/config.py`).
+*   **Postgres:** Stores audit trail. `User.data_retention_days` defaults to 30.
+*   **Frontend:** `SessionPulse` visualizes the Redis TTL.
+
+---
+
+## 4. IMMEDIATE ACTION ITEMS (The Fix List)
+
+These are the blockers preventing Phase 10 (Testing/Dockerization):
+
+1.  **Implement LLM Logic:**
+    *   **File:** `backend/app/agent/support_agent.py`
+    *   **Task:** Replace the mock string return in `_generate_response` with actual `ChatOpenAI` invocation using `RESPONSE_GENERATION_PROMPT`.
+2.  **Correct WebSocket URL:**
+    *   **File:** `frontend/src/stores/chatStore.ts`
+    *   **Task:** Change default URL from `ws://localhost:8000/chat/ws` to `ws://localhost:8000/api/v1/chat/ws`.
+
+---
+
+## 5. CODING STANDARDS & PITFALLS
+
+### Visual Standards
+*   **Radius:** Always `rounded-lg` (maps to `0.125rem`/2px). Never use `rounded-xl`.
+*   **Colors:** Use `trust.green`, `trust.amber`, `trust.red`. Never raw Tailwind colors.
+*   **CSS:** Variables in `globals.css` must preserve HSL syntax (e.g., `120 45% 69%`).
+
+### Backend Pitfalls
+*   **The Phantom Update:** Always `await db.commit()` **before** returning data in `long_term.py`. (Currently fixed, do not regress).
+*   **RAG Type Safety:** Never pass `List[float]` to LangChain's `similarity_search`. Use `qdrant_client.query_points` (Native API) as implemented in `retriever.py`.
+
+---
+
+*This document is the authoritative source for the Singapore SMB Support Agent codebase.*
