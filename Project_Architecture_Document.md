@@ -744,10 +744,13 @@ interface ChatStore {
 **Class:** `WebSocketClient`
 
 **Features:**
-- Auto-reconnect with exponential backoff (3s interval)
+- Auto-reconnect with **exponential backoff** (3s base, 30s max)
 - Heartbeat/ping-pong (30s interval)
 - Max reconnect attempts: 10
 - Session-based connection (`?session_id=xyz`)
+- **Enhanced error logging** with `WebSocketErrorDetails`
+- **Graceful degradation** to REST API after consecutive failures
+- **Disable/enable lifecycle** management
 
 **Key Methods:**
 
@@ -756,12 +759,43 @@ interface ChatStore {
 3. **`sendChatMessage(content)`** - Send chat message
 4. **`sendPing()`** - Send heartbeat
 5. **`disconnect()`** - Graceful disconnect
+6. **`disable()`** - Mark WebSocket as unavailable for session
+7. **`enable()`** - Re-enable WebSocket for manual retry
+8. **`isWebSocketDisabled()`** - Check if WebSocket is disabled
+
+**Exponential Backoff Algorithm:**
+```typescript
+const backoffDelay = Math.min(
+  this.options.reconnectInterval * Math.pow(2, this.reconnectAttempts),
+  30000  // Max 30 seconds
+);
+```
+
+**Failure Handling:**
+- Tracks consecutive failures
+- Auto-disables after 3 consecutive failed reconnection attempts
+- Logs detailed error information (type, timestamp, readyState, URL)
+- Enables immediate REST fallback when disabled
 
 **Event Handlers:**
-- `onOpen`: Update connection status
+- `onOpen`: Update connection status, reset counters
 - `onMessage`: Dispatch to store handler
-- `onError`: Trigger reconnect
-- `onClose`: Schedule reconnect
+- `onError`: Enhanced error logging with `WebSocketErrorDetails`
+- `onClose`: Track consecutive failures, schedule reconnect or disable
+
+**Error Details Interface:**
+```typescript
+interface WebSocketErrorDetails {
+  type: string;           // 'error', 'close', etc.
+  timestamp: string;      // ISO 8601 format
+  target?: {
+    url: string;          // WebSocket URL
+    readyState: string;   // 'CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'
+    protocol: string;     // Protocol used
+  };
+  message: string;        // Human-readable error message
+}
+```
 
 ---
 
@@ -801,9 +835,11 @@ interface ChatStore {
    - Renders: ChatHeader, ChatMessages, ChatInput
 
 2. **ChatMessage** (`components/chat/ChatMessage.tsx`)
+   - **Pure presentation component** (no business logic)
    - Renders user/assistant/system messages
    - **ConfidenceRing:** Visual trust indicator
    - **CitationBadge:** Clickable source references
+   - Note: Thinking state logic moved to parent `ChatMessages` component
 
 3. **ThinkingState** (`components/chat/ThinkingState.tsx`)
    - "Scanning Knowledge Base..." visualizer
@@ -814,7 +850,13 @@ interface ChatStore {
    - PDPA expiry countdown (Green → Amber → Red)
    - 30-minute TTL visualization
 
-5. **EvidenceSheet** (`components/chat/EvidenceSheet.tsx`)
+5. **ChatHeader** (`components/chat/ChatHeader.tsx`)
+   - Session information display
+   - **SSR-safe time rendering** using `useState` + `useEffect` pattern
+   - Real-time clock updates every 60 seconds
+   - Business hours status indicator
+
+6. **EvidenceSheet** (`components/chat/EvidenceSheet.tsx`)
    - Radix Sheet (slide-out panel)
    - Shows source content + metadata
    - Copy to clipboard functionality
@@ -822,8 +864,13 @@ interface ChatStore {
 **UI Primitives (Shadcn):**
 
 - **ConfidenceRing** (`ui/confidence-ring.tsx`)
-  - Ring animation: Green (≥85%), Amber (≥70%), Red (<70%)
+  - **Trust Color Logic (CORRECTED):**
+    - Green (`ring-trust-green`): Confidence ≥ 85% (High trust)
+    - Amber (`ring-trust-amber`): Confidence ≥ 70% (Medium trust)
+    - Red (`ring-trust-red`): Confidence < 70% (Low trust)
   - Sizes: sm, md, lg
+  - Animation: `transition-all duration-500`
+  - Tailwind Config: Uses `trust.green`, `trust.amber`, `trust.red` color variables
 
 - **ScrollArea** (`ui/scroll-area.tsx`)
   - Custom scrollbar (Radix ScrollArea)
@@ -895,7 +942,8 @@ export interface Session {
 1. **User sends message** → ChatInput → `chatStore.sendMessage()`
 2. **WebSocket active?**
    - **Yes:** `socketClient.sendChatMessage(content)`
-   - **No:** Fallback to `chatService.sendMessage()` (REST)
+   - **No (disabled):** Fallback to `chatService.sendMessage()` (REST) with log message
+   - **No (not connected):** Fallback to `chatService.sendMessage()` (REST) with log message
 3. **Backend receives** → WebSocket handler → `SupportAgent.process_message()`
 4. **Thought events stream:**
    - `"assembling_context"` → Frontend shows "Scanning..."
@@ -908,6 +956,12 @@ export interface Session {
 7. **Response sent** → WebSocket → Frontend `handleWSMessage(response)`
 8. **Frontend renders** → ChatMessage with ConfidenceRing + CitationBadges
 9. **Memory saved** → Redis (30m TTL) + PostgreSQL (permanent)
+
+**WebSocket Reconnection Logic (Enhanced):**
+- **Exponential backoff:** `min(3s * 2^attempt, 30s)`
+- **Auto-disable:** After 3 consecutive failed reconnection attempts
+- **Graceful degradation:** Immediate REST fallback when disabled
+- **Re-enable:** Manual `enable()` call available for retry attempts
 
 ### 6.2 Ingestion Flow
 
@@ -1171,8 +1225,34 @@ async def save_session(self, session_id: str, session_data: dict) -> None:
 
 **Trust-Centric UX:**
 - **ConfidenceRing:** Pre-attentive trust signaling
+  - **Color Hierarchy:**
+    - Green (`ring-trust-green`): Confidence ≥ 85% (High trust)
+    - Amber (`ring-trust-amber`): Confidence ≥ 70% (Medium trust)
+    - Red (`ring-trust-red`): Confidence < 70% (Low trust)
+  - **Tailwind Config:**
+    ```typescript
+    trust: {
+      green: "hsl(var(--semantic-green))",
+      amber: "hsl(var(--semantic-amber))",
+      red: "hsl(var(--semantic-red))",
+    }
+    ```
 - **ThinkingState:** Visible AI process (reduces perceived latency)
 - **SessionPulse:** PDPA transparency (countdown visualization)
+
+**SSR-Safe Rendering Patterns:**
+- **Time-based components** (e.g., ChatHeader) use `useState` + `useEffect` pattern
+- Prevents hydration errors by deferring time calculation to client-side
+- Example:
+  ```typescript
+  const [hours, setHours] = React.useState<BusinessHours | null>(null);
+
+  React.useEffect(() => {
+    setHours(getBusinessHours());  // Client-side only
+    const interval = setInterval(() => setHours(getBusinessHours()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+  ```
 
 **Library Discipline:**
 - Shadcn/Radix primitives only
@@ -1190,6 +1270,18 @@ async def save_session(self, session_id: str, session_data: dict) -> None:
 | Ghost WebSocket Client | ✅ FIXED | Integrated in chatStore with auto-connect |
 | Mock Embeddings Active | ⚠️ WARNING | Ensure `OPENROUTER_API_KEY` is set before ingestion |
 | Database Connection String Typo | ✅ FIXED | `REDIS_URL` correctly referenced |
+| ConfidenceRing Logic Inversion | ✅ FIXED | Corrected trust color mapping (Green≥85%, Amber≥70%, Red<70%) |
+| ChatMessage Dead Code | ✅ FIXED | Removed unused imports (ThinkingState, useChatStore, isThinking) |
+| ChatHeader Hydration Error | ✅ FIXED | Time rendering moved to client-side with useState + useEffect pattern |
+| WebSocket Empty Error Object | ✅ FIXED | Enhanced error logging with WebSocketErrorDetails, exponential backoff |
+
+### ✅ All Issues Resolved (v1.0.1)
+
+**Status:** Production-ready with no critical issues remaining.
+
+**Recent Fixes Summary:**
+- **v1.0.1 (January 1, 2026):** All UI/UX bugs and WebSocket errors resolved
+- **v1.0.0 (December 31, 2025):** Initial MVP release
 
 ---
 

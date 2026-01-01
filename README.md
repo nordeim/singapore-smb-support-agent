@@ -77,6 +77,20 @@ Transform customer support with an **intelligent, context-aware AI agent** that 
 - **Audit Logging** for all data access
 - **Right to Deletion** enforcement
 
+### 🎨 Trust-Centric UX
+
+- **ConfidenceRing Visual Feedback:** Color-coded trust indicators
+  - Green (≥85% confidence): High trust answers
+  - Amber (≥70% confidence): Medium confidence
+  - Red (<70% confidence): Low trust/uncertainty
+- **Real-Time Thought Streaming:** Visible AI processing steps
+  - "Scanning..." → "Cross-referencing..." → "Formatting..."
+  - Reduces perceived latency through transparency
+- **SessionPulse PDPA Visualization:** Real-time session expiry countdown
+  - Green (>20m): Session active
+  - Amber (5-20m): Expiring soon
+  - Red (<5m): Critical - extend or lose
+
 ### 🚀 Auto-Escalation Logic
 
 ```python
@@ -151,7 +165,10 @@ graph TB
     C --> N
     C --> O
     O --> N
-```
+    ```
+
+**Note:** WebSocket includes enhanced error handling with exponential backoff (3s * 2^attempt, max 30s) and automatic REST API fallback after 3 consecutive failures.
+
 
 ### Tech Stack Rationale
 
@@ -279,6 +296,50 @@ docker exec smb_support_redis redis-cli ping
 | `Database connection error` | Wait 10s for PostgreSQL to initialize |
 | `401 Unauthorized` | Verify `OPENROUTER_API_KEY` in `.env` |
 | `Module not found` | `docker compose restart backend` (volume mount issue) |
+| `Confidence Ring showing wrong colors` | Fixed in v1.0.1 - update to latest version |
+| `React hydration error on chat header` | Fixed in v1.0.1 - update to latest version |
+| `WebSocket empty error in console` | Fixed in v1.0.1 - system auto-switches to REST fallback |
+
+---
+
+## 🩺 Recent Fixes (v1.0.1)
+
+### ✅ ConfidenceRing Logic Correction
+Fixed trust color inversion issue. High confidence (≥85%) now correctly displays green, low confidence (<70%) displays red.
+
+**Impact:** Users now see accurate trust indicators reflecting actual AI response confidence levels.
+
+### ✅ ChatHeader Hydration Error
+Resolved SSR/client text mismatch that caused React hydration errors during initial page load.
+
+**Solution:** Time rendering moved to client-side using `useState` + `useEffect` pattern with 60-second auto-update interval.
+
+**Impact:** Eliminates hydration warnings, improves initial page load stability.
+
+### ✅ WebSocket Error Handling Enhancement
+Implemented comprehensive error logging and intelligent reconnection strategy.
+
+**New Features:**
+- **WebSocketErrorDetails Interface:** Captures type, timestamp, readyState, URL, and human-readable message
+- **Exponential Backoff:** Reconnection delay: `min(3s * 2^attempt, 30s)`
+- **Graceful Degradation:** Auto-switches to REST API after 3 consecutive WebSocket failures
+- **Lifecycle Management:** `disable()`, `enable()`, and `isWebSocketDisabled()` methods
+
+**Impact:** Users see detailed error information, and system maintains functionality via REST fallback when WebSocket is unavailable.
+
+### ✅ Component Cleanup
+Removed dead code from ChatMessage component for improved maintainability and bundle size.
+
+**Changes:**
+- Removed unused imports: `ThinkingState`, `useChatStore`, `isThinking`
+- ChatMessage now serves as pure presentation component
+- Thinking state logic correctly delegated to parent `ChatMessages` component
+
+**Impact:** Cleaner code architecture, reduced bundle size, improved component modularity.
+
+---| `Confidence Ring showing wrong colors` | Fixed in v1.0.1 - update to latest version |
+| `React hydration error on chat header` | Fixed in v1.0.1 - update to latest version |
+| `WebSocket empty error in console` | Fixed in v1.0.1 - system auto-switches to REST fallback |
 
 ---
 
