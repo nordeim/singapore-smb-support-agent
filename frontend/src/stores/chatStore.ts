@@ -118,6 +118,7 @@ export const useChatStore = create<ChatStore>()(
         }
 
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/chat/ws';
+        console.log(`[WebSocket] Attempting connection to: ${wsUrl}?session_id=${sessionId}`);
 
         const wsClient = new WebSocketClient({
           url: wsUrl,
@@ -129,13 +130,32 @@ export const useChatStore = create<ChatStore>()(
             set({ connectionStatus: 'connected', isConnected: true });
             console.log('[WebSocket] Connected');
           },
-          onError: (error) => {
-            console.error('[WebSocket] Error:', error);
+          onError: (error: any, details?: any) => {
+            const errorInfo = {
+              type: error?.type || details?.type || 'unknown',
+              message: error?.message || details?.message || 'No message provided',
+              timestamp: new Date().toISOString(),
+            };
+            
+            if (details?.target) {
+              (errorInfo as any).readyState = details.target.readyState;
+              (errorInfo as any).url = details.target.url;
+              (errorInfo as any).protocol = details.target.protocol;
+            }
+            
+            console.error('[WebSocket] Error:', errorInfo);
             set({ connectionStatus: 'error', isConnected: false });
           },
-          onClose: () => {
+          onClose: (event: CloseEvent) => {
+            const closeInfo = {
+              code: event.code,
+              reason: event.reason || 'No reason provided',
+              wasClean: event.wasClean,
+              timestamp: new Date().toISOString(),
+            };
+            
+            console.log('[WebSocket] Closed:', closeInfo);
             set({ connectionStatus: 'disconnected', isConnected: false });
-            console.log('[WebSocket] Disconnected');
           },
           reconnectInterval: 3000,
           maxReconnectAttempts: 10,
@@ -232,11 +252,19 @@ export const useChatStore = create<ChatStore>()(
         setTyping(true);
 
         try {
-          // Use WebSocket if available, otherwise fall back to REST
-          if (socketClient && socketClient.getStatus() === 'connected') {
+          // Use WebSocket if available and not disabled, otherwise fall back to REST
+          if (socketClient && 
+              socketClient.getStatus() === 'connected' && 
+              !socketClient.isWebSocketDisabled()) {
             socketClient.sendChatMessage(content);
           } else {
             // Fallback to REST API
+            if (socketClient?.isWebSocketDisabled()) {
+              console.info('[WebSocket] Using REST API fallback (WebSocket disabled)');
+            } else {
+              console.info('[WebSocket] Using REST API fallback (not connected)');
+            }
+            
             const { chatService } = await import('@/lib/api');
 
             const request: ChatRequest = {

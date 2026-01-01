@@ -3,16 +3,12 @@
 import * as React from 'react';
 import { Bot, User } from 'lucide-react';
 import { format } from 'date-fns';
-import { Separator } from '@/components/ui/separator';
 import { ConfidenceRing } from '@/components/ui/confidence-ring';
-import { ThinkingState } from './ThinkingState';
 import type { ChatMessageProps } from '@/types';
-import { useChatStore } from '@/stores/chatStore';
 
 export function ChatMessage({ message, showSources = false }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
-  const { isThinking } = useChatStore();
 
   if (isSystem) {
     return (

@@ -353,36 +353,358 @@ Codebase is now functional and ready for production deployment.
 
 ---
 
-$ npm run build
+# Project Architecture Document (PAD)
 
-> singapore-smb-support-agent-frontend@0.1.0 build
-> next build
+**Project:** Singapore SMB Customer Support AI Agent
+**Version:** 1.0.0 (Release Candidate 1)
+**Date:** January 1, 2026
+**Status:** `Production Ready`
+**Context:** Singapore Business (GMT+8) | PDPA Compliant | Hybrid RAG
 
- ⚠ Invalid next.config.js options detected: 
- ⚠     Unrecognized key(s) in object: 'fontLoaders' at "experimental"
- ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
-   ▲ Next.js 15.5.9
-   - Experiments (use with caution):
-     · fontLoaders
-     · optimizePackageImports
+---
 
-   Creating an optimized production build ...
- ✓ Compiled successfully in 8.5s
- ✓ Linting and checking validity of types    
- ✓ Collecting page data    
- ✓ Generating static pages (4/4)
- ✓ Collecting build traces    
- ✓ Finalizing page optimization    
+## 1. Executive Summary
 
-Route (app)                                 Size  First Load JS    
-┌ ○ /                                    20.6 kB         123 kB
-└ ○ /_not-found                            994 B         103 kB
-+ First Load JS shared by all             102 kB
-  ├ chunks/255-cb395327542b56ef.js       45.9 kB
-  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
-  └ other shared chunks (total)          1.93 kB
+The **Singapore SMB Support Agent** is a production-grade AI customer service system engineered specifically for the high-trust, regulatory-heavy Singapore market. Unlike generic chatbot templates, this system prioritizes **Context Awareness** (Singlish nuance, SGT business hours), **Data Sovereignty** (PDPA-compliant auto-expiry), and **Visual Precision** ("Avant-Garde" Utilitarian UI).
 
+### Core Identity & Differentiators
+*   **Hybrid Intelligence:** Combines **Dense Vector Search** (Semantic) with **Sparse Search** (Keyword) and **Cross-Encoder Reranking** for maximum retrieval accuracy.
+*   **Cognitive Transparency:** Visualizes the agent's internal thought process ("Scanning Knowledge Base...", "Cross-referencing Policies...") via real-time WebSockets, reducing perceived latency and building user trust.
+*   **Compliance-by-Design:** Data minimization and retention policies (30-day hard limit) are enforced at the database schema level and visualized via the `SessionPulse` UI.
+*   **Utilitarian Aesthetic:** A deliberate rejection of "SaaS softness." The interface uses sharp `2px` radii, high-contrast monochrome (Zinc-950/100), and `Manrope/Inter` typography to signal engineering precision.
 
-○  (Static)  prerendered as static content
+---
 
+## 2. System Architecture
 
+The system operates as a containerized microservices application orchestrated via Docker Compose.
+
+```mermaid
+graph TD
+    subgraph Frontend_Container [Frontend (Next.js 15)]
+        UI[React UI Components]
+        Store[Zustand Store]
+        WS_C[WebSocket Client]
+        REST_C[API Client]
+    end
+
+    subgraph Backend_Container [Backend (FastAPI)]
+        API[API Router]
+        Manager[Connection Manager]
+        Agent[Support Agent]
+        RAG[RAG Pipeline]
+        Mem[Memory Manager]
+    end
+
+    subgraph Data_Layer [Persistence]
+        PG[(PostgreSQL<br/>Long Term Memory)]
+        Redis[(Redis<br/>Session Cache)]
+        Qdrant[(Qdrant<br/>Vector Store)]
+    end
+
+    subgraph External_Services
+        OR[OpenRouter API<br/>LLM Inference]
+        EMB[OpenAI Embeddings]
+    end
+
+    User -->|HTTPS| UI
+    UI -->|WebSocket (Primary)| Manager
+    UI -->|REST (Fallback)| API
+    
+    Manager & API --> Agent
+    Agent --> Mem
+    Agent --> RAG
+    
+    Mem --> PG
+    Mem --> Redis
+    
+    RAG --> Qdrant
+    RAG --> OR
+    Agent --> OR
+```
+
+### 2.1 Technology Stack
+| Layer | Technology | Key Component | Rationale |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | Next.js 15 | App Router | React Server Components for performance. |
+| **State** | Zustand | `chatStore.ts` | Minimalist, flux-like state management without Redux boilerplate. |
+| **Styling** | Tailwind CSS 3.4 | `globals.css` | Utility-first styling with semantic HSL variables. |
+| **Backend** | Python 3.12 | FastAPI | High-performance async support for WebSockets. |
+| **AI Agent** | Pydantic AI | `SupportAgent` | Type-safe tool definition and structured outputs. |
+| **Vector DB** | Qdrant | Native Client | Hybrid search support and high-performance Rust core. |
+| **DB** | PostgreSQL 16 | SQLAlchemy (Async) | Robust relational data integrity for audit trails. |
+| **Cache** | Redis 7 | `redis-py` | Low-latency session storage with native TTL support. |
+
+---
+
+## 3. Directory Structure & Key Files
+
+### 3.1 Backend (`/backend`)
+Structured using Dependency Injection and Service-Repository patterns.
+
+```text
+backend/
+├── app/
+│   ├── main.py                 # App entry, lifespan management, middleware
+│   ├── config.py               # Pydantic settings (Env vars)
+│   ├── dependencies.py         # DI Providers (DB, Memory, BusinessContext)
+│   ├── agent/                  # The "Brain"
+│   │   ├── support_agent.py    # Core logic: Context Assembly + Response Gen + Thought Emission
+│   │   ├── validators.py       # Sentiment & PDPA Compliance checks
+│   │   └── tools/              # Agent Capabilities (RAG, Hours, DB, Escalation)
+│   ├── api/                    # Interface Layer
+│   │   └── routes/             # chat.py (WS/REST endpoints), auth.py
+│   ├── ingestion/              # ETL Pipeline
+│   │   ├── pipeline.py         # Orchestrator: Parse -> Chunk -> Embed -> Upsert
+│   │   └── parsers/            # MarkItDown integration
+│   ├── memory/                 # State Management
+│   │   ├── manager.py          # Orchestrator (Redis + Postgres + Summarizer)
+│   │   ├── short_term.py       # Redis Wrapper (30m TTL)
+│   │   └── long_term.py        # SQLAlchemy Repositories (Users, Tickets)
+│   ├── rag/                    # Retrieval Engine
+│   │   ├── pipeline.py         # Query Transform -> Retrieve -> Rerank -> Compress
+│   │   └── retriever.py        # Hybrid Search (Native Qdrant API)
+│   └── models/                 # Data Definitions
+│       ├── database.py         # SQLAlchemy Tables
+│       └── schemas.py          # Pydantic DTOs
+└── scripts/
+    └── ingest_documents.py     # CLI Tool for batch data ingestion
+```
+
+### 3.2 Frontend (`/frontend`)
+Next.js application using Tailwind CSS and Shadcn UI primitives.
+
+```text
+frontend/
+├── src/
+│   ├── app/
+│   │   ├── globals.css         # Visual System (HSL Trust Colors & 2px Radius)
+│   │   └── page.tsx            # Entry Point
+│   ├── components/
+│   │   ├── chat/               # Business Components
+│   │   │   ├── ChatWidget.tsx  # Layout Controller
+│   │   │   ├── ChatMessages.tsx# Message List + ThinkingState (Relocated)
+│   │   │   ├── ChatMessage.tsx # Message Bubble + ConfidenceRing
+│   │   │   └── SessionPulse.tsx# PDPA Expiry Visualizer
+│   │   └── ui/                 # Shadcn Primitives (Sheet, Card, Button)
+│   ├── lib/
+│   │   ├── api.ts              # REST Client (Fallback)
+│   │   └── websocket.ts        # Robust WebSocket Singleton
+│   ├── stores/
+│   │   └── chatStore.ts        # Global State (Messages, Connection, Thoughts)
+│   └── types/
+│       └── index.ts            # Shared Interfaces
+└── tailwind.config.ts          # Theme Config (Maps CSS vars to Tailwind)
+```
+
+---
+
+## 4. Core Subsystems Analysis
+
+### 4.1 RAG Pipeline (The "Knowledge")
+The system uses a **Hybrid Retrieval** strategy to ensure accuracy for both specific terminology and conceptual queries.
+
+*   **Implementation:** `backend/app/rag/retriever.py`
+*   **Strategy:**
+    1.  **Dense Search:** `text-embedding-3-small` (1536d) via Qdrant for semantic meaning.
+    2.  **Native API:** Uses `client.query_points` instead of LangChain wrappers to prevent type mismatches (Vector vs String).
+    3.  **Reranking:** `BAAI/bge-reranker-v2-m3` rescores top results to filter irrelevant matches.
+
+### 4.2 The Support Agent (The "Brain")
+*   **Implementation:** `backend/app/agent/support_agent.py`
+*   **Transparency Protocol:** Emits intermediate "thought" events (`assembling_context` -> `searching_knowledge` -> `generating_response`) via WebSockets.
+*   **Validation:** Uses `ResponseValidator` to check for negative sentiment (triggering escalation) and PDPA violations (masking NRIC/Credit Cards) *before* returning to the user.
+
+### 4.3 Memory Architecture (The "Context")
+*   **Short-Term (Redis):** Stores the active session with a strict 30-minute TTL. Handles the "hot" conversation context.
+*   **Long-Term (Postgres):** Stores the immutable audit trail of messages and support tickets.
+*   **Summarization:** Triggered automatically every 20 messages to compress context into a `ConversationSummary` embedding, preventing token overflow.
+
+---
+
+## 5. Critical Remediation History (Resolved Issues)
+
+This section documents specific fixes applied to the codebase to reach v1.0.0 status.
+
+### ✅ 1. The "Phantom Update" Fix
+*   **Issue:** In `LongTermMemory.update_ticket_status`, the function returned *before* committing the database transaction, causing ticket status updates to be lost.
+*   **Resolution:** Moved `await self.db.commit()` before the `return ticket` statement.
+*   **Status:** **FIXED** in `backend/app/memory/long_term.py`.
+
+### ✅ 2. The "Invisible Color" Fix
+*   **Issue:** `globals.css` defined RGB-like values (e.g., `142 211 142`) for CSS variables, but Tailwind's `hsl()` config expected valid HSL syntax. This rendered semantic colors transparent.
+*   **Resolution:** Converted variables to valid HSL percentages (e.g., `--semantic-green: 120 45% 69%;`).
+*   **Status:** **FIXED** in `frontend/src/app/globals.css`.
+
+### ✅ 3. The "Thinking State" Relocation
+*   **Issue:** `ThinkingState` was nested inside `ChatMessage`, meaning it could only appear *after* a message was created.
+*   **Resolution:** Moved `ThinkingState` to `ChatMessages.tsx` (the list container), allowing it to render *pending* the arrival of a new message.
+*   **Status:** **FIXED** in `frontend/src/components/chat/ChatMessages.tsx`.
+
+---
+
+## 6. Data Architecture
+
+### 6.1 PostgreSQL Schema (Long-Term Memory)
+Designed for PDPA compliance and auditability.
+
+| Table | Description | Key Columns |
+| :--- | :--- | :--- |
+| `users` | Auth & Consent | `email`, `consent_given_at`, `data_retention_days` |
+| `conversations` | Session Metadata | `session_id`, `is_active`, `summary_count` |
+| `messages` | Content History | `role`, `content`, `confidence`, `sources` (JSON) |
+| `support_tickets` | Escalations | `reason`, `status`, `assigned_to` |
+
+### 6.2 Redis Schema (Short-Term Memory)
+*   **Key Pattern:** `session:{uuid}`
+*   **Value:** JSON Blob (User ID, Recent Messages)
+*   **TTL:** 30 Minutes (Rolling)
+
+---
+
+## 7. Operational Workflows
+
+### 7.1 Real-Time Chat Loop
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Frontend
+    participant WS as WebSocket
+    participant Agent
+    participant RAG
+
+    User->>UI: Types Message
+    UI->>WS: Send(Message)
+    WS->>Agent: Process(Message)
+    
+    rect rgb(240, 248, 255)
+        Note right of Agent: Cognitive Transparency
+        Agent->>WS: Emit("thought", "Scanning Knowledge Base...")
+        UI->>UI: Show ThinkingState (in ChatMessages)
+        Agent->>RAG: Retrieve()
+        RAG->>Agent: Docs + Scores
+        Agent->>WS: Emit("thought", "Formatting Response...")
+    end
+    
+    Agent->>WS: Emit("response", Content + Confidence)
+    UI->>UI: Hide ThinkingState
+    UI->>UI: Render Message + ConfidenceRing
+```
+
+---
+
+## 8. Developer Guide
+
+### 8.1 Environment Setup
+Create a `.env` file in `/backend`:
+```ini
+# Database
+DATABASE_URL=postgresql+asyncpg://agent_user:dev_password_only@postgres:5432/support_agent
+REDIS_URL=redis://redis:6379/0
+QDRANT_URL=http://qdrant:6333
+
+# AI Services
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+# Use a cost-effective default model
+LLM_MODEL_PRIMARY=mistralai/devstral-2512:free 
+
+# Security
+SECRET_KEY=dev-secret-key-min-32-chars
+```
+
+### 8.2 Deployment Commands
+```bash
+# 1. Start Infrastructure & Backend
+docker-compose up -d
+
+# 2. Ingest Sample Data (Required for RAG)
+docker-compose exec backend python -m scripts.ingest_documents \
+  --input-dir data/ --init-collections
+
+# 3. Access Frontend
+# Open http://localhost:3000
+```
+
+### 8.3 Frontend Styling Rules
+*   **Radius:** Always use `rounded-lg` (maps to `var(--radius)` which is 2px).
+*   **Colors:** Use semantic names: `bg-trust-green`, `ring-trust-amber`. Do not use hardcoded Tailwind colors like `green-500` for trust indicators.
+*   **Typography:** Headings use `font-manrope`, body uses `font-inter`.
+
+---
+
+## 9. Known Constraints
+1.  **Language:** MVP is optimized for **English**. While the architecture supports multi-language, the RAG retrieval filter is currently hardcoded to `language="en"`.
+2.  **Context Window:** The `ContextCompressor` aggressively trims history to fit ~4000 tokens. Long conversations may lose granular detail from early messages (mitigated by summarization).
+
+---
+
+*This document is the authoritative reference for the Singapore SMB Support Agent codebase (v1.0.0).*
+
+---
+
+✅ Hydration Error Fixed
+Root Cause:
+ChatHeader.tsx was rendering time-based data during SSR, causing server/client text mismatch (10:40 am vs 10:41 am).
+Solution Implemented:
+1. Deferred time calculation to client-only using useState(null) + useEffect
+2. Added auto-update interval (60s) for real-time display
+3. Conditional rendering prevents SSR time display
+4. Static values (timezone, business hours) use optional chaining with fallbacks
+Modified File:
+- frontend/src/components/chat/ChatHeader.tsx:11-40,70-84
+Validation:
+- ✅ TypeScript: No errors
+- ✅ ESLint: Passed
+- ✅ Pattern: Client-only data rendering (React best practice)
+Key Improvements:
+- Eliminates hydration mismatch completely
+- Real-time clock updates every minute
+- Clean component lifecycle with interval cleanup
+- Graceful fallback during initial render
+
+---
+
+✅ WebSocket Error Fixed
+Root Cause Analysis:
+- Empty error object {} due to Event object serialization issues
+- No connection context (URL, readyState, timestamp) in error logs
+- Aggressive reconnection wasting resources (10 attempts with 3s delays)
+- No graceful degradation to REST API on persistent failures
+Solution Implemented:
+1. Enhanced Error Logging (websocket.ts)
+- Added WebSocketErrorDetails interface
+- Extract: type, timestamp, readyState, url, protocol, message
+- Helper methods: getReadyStateLabel(), getErrorMessage()
+- Detailed logging for all WebSocket events (open, error, close)
+2. Exponential Backoff (websocket.ts)
+- Backoff delay: min(3s * 2^attempt, 30s)
+- Tracks consecutive failures
+- Disables WebSocket after 3 consecutive failures
+- Resets counter on successful connection
+3. Graceful Degradation (websocket.ts, chatStore.ts)
+- New methods: disable(), enable(), isWebSocketDisabled()
+- Check disabled state before connection attempts
+- Immediate REST fallback when disabled
+- Clear console messages about fallback usage
+4. Improved Event Handlers
+- onerror: Detailed error info with context
+- onclose: Code, reason, wasClean status tracking
+- onopen: Success confirmation with counter reset
+- Connection URL logging for debugging
+Modified Files:
+- frontend/src/lib/websocket.ts - Core error handling & reconnection logic
+- frontend/src/stores/chatStore.ts - Error logging & fallback integration
+Validation:
+- ✅ TypeScript: No errors
+- ✅ Error messages: Now include actionable details
+- ✅ Reconnection: Exponential backoff with smart termination
+- ✅ Fallback: REST API used when WebSocket unavailable
+Console Output (Before vs After):
+// Before: [WebSocket] Error: {}
+// After: [WebSocket] Connection error: {
+//   type: 'error',
+//   timestamp: '2026-01-01T02:45:00.000Z',
+//   target: { url: 'ws://localhost:8000/chat/ws', readyState: 'CONNECTING', protocol: 'ws:' },
+//   message: 'Failed to establish connection'
+// }
