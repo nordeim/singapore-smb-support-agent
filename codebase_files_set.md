@@ -1760,12 +1760,11 @@ class DocumentParser:
 ```py
 """Main RAG pipeline orchestrator."""
 
-
 from app.config import settings
 from app.rag.context_compress import ContextCompressor
 from app.rag.query_transform import QueryTransformer
 from app.rag.reranker import BGEReranker
-from app.rag.retriever import HybridRetriever
+from app.rag.retriever import DenseRetriever
 
 
 class RAGPipeline:
@@ -1774,7 +1773,7 @@ class RAGPipeline:
     def __init__(self):
         """Initialize RAG pipeline components."""
         self.query_transformer = QueryTransformer()
-        self.retriever = HybridRetriever()
+        self.retriever = DenseRetriever()
         self.reranker = BGEReranker(top_n=settings.RERANK_TOP_N)
         self.compressor = ContextCompressor(token_budget=settings.CONTEXT_TOKEN_BUDGET)
 
@@ -1788,7 +1787,7 @@ class RAGPipeline:
         transform_result = await self.query_transformer.transform(query)
         transformed_query = transform_result["rewitten"]
 
-        docs = await self.retriever.hybrid_search(transformed_query)
+        docs = await self.retriever.dense_search(transformed_query)
         reranked_docs = await self.reranker.async_rerank(transformed_query, docs)
 
         context_result = self.compressor.compress(
@@ -1824,7 +1823,7 @@ class RAGPipeline:
         """Simple retrieval for context without full pipeline."""
         docs = await self.reranker.async_rerank(
             query,
-            await self.retriever.hybrid_search(query),
+            await self.retriever.dense_search(query),
         )
 
         context = "\n\n".join([doc["text"] for doc in docs[:3]])
@@ -2223,7 +2222,6 @@ class BGEReranker:
 ```py
 """Hybrid retrieval combining dense (semantic) and sparse (BM25) search with RRF fusion."""
 
-
 from qdrant_client import models
 from qdrant_client.http.models import Filter
 
@@ -2232,20 +2230,20 @@ from app.ingestion.embedders.embedding import embedding_generator
 from app.rag.qdrant_client import QdrantManager
 
 
-class HybridRetriever:
-    """Hybrid retrieval combining dense and sparse search with RRF fusion."""
+class DenseRetriever:
+    """Dense retrieval using semantic vector search with Qdrant."""
 
     def __init__(self):
         """Initialize hybrid retriever."""
         self.k = settings.RETRIEVAL_TOP_K
 
-    async def hybrid_search(
+    async def dense_search(
         self,
         query: str,
         collection_name: str = "knowledge_base",
         filters: dict | None = None,
     ) -> list[models.ScoredPoint]:
-        """Execute hybrid search combining dense and sparse results with RRF fusion."""
+        """Execute dense search using semantic vectors."""
         query_vector = await embedding_generator.generate_single(query)
 
         qdrant_filter = Filter(
@@ -4365,7 +4363,6 @@ async def create_new_session(
 ```py
 """Chat API routes with WebSocket support for Singapore SMB Support Agent."""
 
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -4380,6 +4377,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.support_agent import get_support_agent
 from app.dependencies import get_db, get_memory_manager
 from app.models.schemas import ChatRequest, ChatResponse, SourceCitation
+from app.rag.pipeline import rag_pipeline
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 security = HTTPBearer(auto_error=False)
@@ -4445,7 +4443,7 @@ async def chat(
         user_id = session_data.get("user_id")
 
         agent = await get_support_agent(
-            rag_pipeline=None,
+            rag_pipeline=rag_pipeline,
             memory_manager=memory_manager,
             db=db,
         )
@@ -4520,7 +4518,7 @@ async def websocket_chat(
         await manager.connect(session_id, websocket)
 
         agent = await get_support_agent(
-            rag_pipeline=None,
+            rag_pipeline=rag_pipeline,
             memory_manager=memory_manager,
             db=db,
             ws_manager=manager,
