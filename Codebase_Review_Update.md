@@ -348,4 +348,316 @@ The submitted code successfully remediates the two critical blockers identified 
 
 ---
 
+# Implementation Plan: Project Architecture Document (PAD)
 
+**Status:** `READY FOR EXECUTION`
+**Target Audience:** Human Developers & AI Agents
+**Objective:** Create the authoritative "Single Source of Truth" reflecting the validated codebase (Post-Remediation).
+
+## 1. Document Strategy
+This PAD will replace all previous fragmentation. It will treat the **WebSocket Integration** and **RAG Native Client Fix** as **established architecture**, moving them from "Known Issues" to "Core Logic."
+
+## 2. Structure Breakdown
+1.  **Project Identity:** The Singapore SMB context, PDPA compliance, and "Avant-Garde" design philosophy.
+2.  **System Anatomy:**
+    *   High-level Container Diagram.
+    *   Detailed File Map (Annotated).
+3.  **Core Subsystems (Deep Dive):**
+    *   **The Brain:** `SupportAgent` & Pydantic AI Tools.
+    *   **The Memory:** Hierarchical storage (Redis Session -> Postgres History).
+    *   **The Knowledge:** RAG Pipeline (Native Qdrant + BM25 + Cross-Encoder).
+    *   **The Interface:** Next.js + Zustand + WebSocket Hybrid Client.
+4.  **Data Architecture:**
+    *   PostgreSQL Entity Relationship Diagram (ERD).
+    *   Redis Key Patterns.
+    *   Qdrant Payload Schema.
+5.  **Operational Workflows:**
+    *   Real-time Chat Loop (Sequence Diagram).
+    *   Document Ingestion Pipeline.
+6.  **Developer Guide:** Setup, Env Vars, and Testing.
+
+## 3. Execution Checklist
+*   [x] **Validate Backend:** Ensure `retriever.py` description matches the *Native Qdrant* implementation.
+*   [x] **Validate Frontend:** Ensure `chatStore.ts` description matches the *Hybrid WebSocket/REST* implementation.
+*   [x] **Validate Context:** Ensure Singapore Business Hours logic (`check_business_hours.py`) is documented.
+
+---
+
+**Proceeding to Generate Project Architecture Document...**
+
+***
+
+# Project Architecture Document (PAD)
+
+**Project:** Singapore SMB Customer Support AI Agent
+**Version:** 1.1.0 (Post-Remediation)
+**Date:** January 1, 2026
+**Status:** `Active Development`
+**Context:** Singapore Business (GMT+8) | PDPA Compliant | Hybrid RAG
+
+---
+
+## 1. Executive Summary
+
+The **Singapore SMB Support Agent** is a production-grade AI system designed for high-trust customer interactions. Unlike generic chatbots, it enforces strict **context awareness** (Singapore business hours, Public Holidays), **data sovereignty** (PDPA-compliant auto-expiry), and **visual precision** (Utilitarian "Avant-Garde" UI).
+
+### Core Differentiators
+*   **Hybrid Intelligence:** Combines **Semantic Search** (Dense Vectors) with **Keyword Search** (Sparse BM25) and **Cross-Encoder Reranking** for maximum retrieval accuracy.
+*   **Real-Time Transparency:** Visualizes the agent's "Thinking Process" via WebSockets to build user trust.
+*   **Compliance-by-Design:** Data minimization and retention policies are enforced at the database schema level.
+*   **Robust Architecture:** Fault-tolerant frontend that switches between WebSocket and REST automatically.
+
+---
+
+## 2. System Architecture
+
+The system operates as a containerized microservices application orchestrated via Docker Compose.
+
+```mermaid
+graph TD
+    subgraph Frontend_Container [Frontend (Next.js 15)]
+        UI[React UI Components]
+        Store[Zustand Store]
+        WS_C[WebSocket Client]
+        REST_C[API Client]
+    end
+
+    subgraph Backend_Container [Backend (FastAPI)]
+        API[API Router]
+        Manager[Connection Manager]
+        Agent[Support Agent]
+        RAG[RAG Pipeline]
+        Mem[Memory Manager]
+    end
+
+    subgraph Data_Layer [Persistence]
+        PG[(PostgreSQL<br/>Long Term)]
+        Redis[(Redis<br/>Session Cache)]
+        Qdrant[(Qdrant<br/>Vector Store)]
+    end
+
+    subgraph External_Services
+        OR[OpenRouter API]
+    end
+
+    User -->|HTTPS| UI
+    UI -->|WebSocket| Manager
+    UI -->|REST| API
+    
+    Manager & API --> Agent
+    Agent --> Mem
+    Agent --> RAG
+    
+    Mem --> PG
+    Mem --> Redis
+    
+    RAG --> Qdrant
+    RAG --> OR
+    Agent --> OR
+```
+
+---
+
+## 3. Directory Structure & Key Files
+
+### 3.1 Backend (`/backend`)
+**Framework:** Python 3.12 / FastAPI / Pydantic AI
+
+```text
+backend/
+├── app/
+│   ├── main.py                 # App entry, lifespan, middleware
+│   ├── config.py               # Pydantic settings (Env vars)
+│   ├── dependencies.py         # DI Providers (DB, Memory, BusinessContext)
+│   ├── agent/                  # The "Brain"
+│   │   ├── support_agent.py    # Main logic: Context + Tools + LLM
+│   │   ├── validators.py       # Sentiment & PDPA guardrails
+│   │   └── tools/              # Agent Capabilities (RAG, Hours, DB)
+│   ├── api/                    # Interface Layer
+│   │   └── routes/             # chat.py (WS/REST endpoints), auth.py
+│   ├── ingestion/              # ETL Pipeline
+│   │   ├── pipeline.py         # Orchestrator: Parse -> Chunk -> Embed -> Upsert
+│   │   └── parsers/            # MarkItDown integration
+│   ├── memory/                 # State Management
+│   │   ├── manager.py          # Orchestrator (Redis + Postgres)
+│   │   ├── short_term.py       # Redis Wrapper (30m TTL)
+│   │   └── long_term.py        # SQLAlchemy Repositories
+│   ├── rag/                    # Retrieval Engine
+│   │   ├── pipeline.py         # Query Transform -> Retrieve -> Rerank
+│   │   └── retriever.py        # Hybrid Search (Native Qdrant API)
+│   └── models/                 # Data Definitions
+│       ├── database.py         # SQLAlchemy Tables
+│       └── schemas.py          # Pydantic DTOs
+└── scripts/
+    └── ingest_documents.py     # CLI Tool for batch data ingestion
+```
+
+### 3.2 Frontend (`/frontend`)
+**Framework:** Next.js 15 / TypeScript / Tailwind CSS 4.0
+
+```text
+frontend/
+├── src/
+│   ├── app/
+│   │   ├── globals.css         # Visual System (Vars: --radius, --semantic-green)
+│   │   └── page.tsx            # Entry Point
+│   ├── components/
+│   │   ├── chat/               # Business Components
+│   │   │   ├── ChatWidget.tsx  # Layout Controller
+│   │   │   ├── ChatMessage.tsx # Message Bubble + Confidence Ring
+│   │   │   └── ThinkingState.tsx # "Scanning..." visualizer
+│   │   └── ui/                 # Shadcn Primitives (Sheet, Card, Button)
+│   ├── lib/
+│   │   ├── api.ts              # REST Client (Fallback)
+│   │   └── websocket.ts        # WebSocket Singleton Class
+│   ├── stores/
+│   │   └── chatStore.ts        # Global State (Messages, Connection, Typing)
+│   └── types/
+│       └── index.ts            # Shared Interfaces
+└── tailwind.config.ts          # Theme Config
+```
+
+---
+
+## 4. Core Subsystems Analysis
+
+### 4.1 RAG Pipeline (The "Knowledge")
+The system uses a **Hybrid Retrieval** strategy to ensure accuracy for both specific terminology and conceptual queries.
+
+*   **1. Query Transformation:**
+    *   Rewrites user queries (e.g., "what's the price?" -> "pricing for standard tier") using LLM.
+*   **2. Retrieval (Hybrid):**
+    *   **Dense:** `text-embedding-3-small` vectors (1536d) via Qdrant.
+    *   **Sparse:** BM25 via Qdrant `fastembed`.
+    *   **Implementation:** `backend/app/rag/retriever.py` uses **Native Qdrant API** (`client.query_points`) for type safety.
+*   **3. Reranking:**
+    *   Top results are rescored using `BAAI/bge-reranker-v2-m3` (Cross-Encoder) to filter out irrelevant matches.
+
+### 4.2 The Support Agent (The "Brain")
+Implemented in `backend/app/agent/support_agent.py` using **Pydantic AI**.
+
+*   **Context Assembly:** Fetches session history from Redis and User Profile from Postgres.
+*   **Validation:** Before responding, checks:
+    *   **Sentiment:** Is the user angry? (Triggers escalation).
+    *   **PDPA:** Does the input contain NRIC/Credit Cards? (Triggers warning/masking).
+*   **Tools:**
+    *   `retrieve_knowledge`: RAG search.
+    *   `check_business_hours`: Verifies 9am-6pm SGT & Public Holidays.
+    *   `get_customer_info`: DB lookup.
+
+### 4.3 Frontend State (The "Interface")
+Managed by **Zustand** in `frontend/src/stores/chatStore.ts`.
+
+*   **Hybrid Connection Strategy:**
+    *   Primary: **WebSocket** (`lib/websocket.ts`) for real-time "Thinking" events and token streaming.
+    *   Fallback: **REST API** (`lib/api.ts`) if the socket disconnects.
+*   **Visual System:**
+    *   **Radius:** `0.125rem` (2px) - Utilitarian aesthetic.
+    *   **Typography:** Manrope (Headings) / Inter (Body).
+    *   **Indicators:** `ConfidenceRing` (Color-coded trust) and `SessionPulse` (TTL visualization).
+
+---
+
+## 5. Data Architecture
+
+### 5.1 PostgreSQL Schema (Long-Term Memory)
+Designed for PDPA compliance.
+
+| Table | Description | Key Columns |
+| :--- | :--- | :--- |
+| **users** | Auth & Consent | `email`, `consent_given_at`, `data_retention_days` |
+| **conversations** | Session Metadata | `session_id`, `is_active`, `summary_count` |
+| **messages** | Content History | `role`, `content`, `confidence`, `sources` (JSON) |
+| **conversation_summaries** | Context Compression | `summary`, `message_range_start/end` |
+| **support_tickets** | Escalation | `reason`, `status`, `assigned_to` |
+
+### 5.2 Redis Schema (Short-Term Memory)
+Used for active session context and debouncing.
+
+*   **Session Data:** `session:{uuid}` -> JSON Blob (30 min TTL).
+*   **Message Count:** `session:{uuid}:count` -> Integer (Triggers summarization at 20 msgs).
+
+---
+
+## 6. Operational Workflows
+
+### 6.1 Real-Time Chat Loop
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Frontend
+    participant WS as WebSocket
+    participant Agent
+    participant RAG
+
+    User->>UI: Types Message
+    UI->>WS: Send(Message)
+    WS->>Agent: Process(Message)
+    
+    loop Thinking Phase
+        Agent->>WS: Emit("thought", "Scanning Knowledge Base...")
+        UI->>UI: Show ThinkingState
+        Agent->>RAG: Retrieve()
+        RAG->>Agent: Docs + Scores
+        Agent->>WS: Emit("thought", "Formatting Response...")
+    end
+    
+    Agent->>WS: Emit("response", Content + Confidence)
+    UI->>UI: Render Message + ConfidenceRing
+```
+
+### 6.2 Data Ingestion
+```mermaid
+graph LR
+    File[PDF/DOCX] --> Parser[MarkItDown]
+    Parser --> Text[Raw Text]
+    Text --> Chunker{Semantic Splitter}
+    Chunker --> Embed[OpenAI Embeddings]
+    Embed --> Vector[Vector + Payload]
+    Vector --> Qdrant[Qdrant DB]
+```
+
+---
+
+## 7. Developer Guide
+
+### 7.1 Environment Setup
+Create a `.env` file in `/backend`:
+```ini
+DATABASE_URL=postgresql+asyncpg://agent_user:dev_password_only@postgres:5432/support_agent
+REDIS_URL=redis://redis:6379/0
+QDRANT_URL=http://qdrant:6333
+OPENROUTER_API_KEY=sk-or-...
+OPENAI_API_KEY=... (Optional, if using direct OpenAI)
+SECRET_KEY=dev-secret-key
+ENVIRONMENT=development
+```
+
+### 7.2 Running the Stack
+```bash
+# 1. Start Infrastructure & Backend
+docker-compose up -d
+
+# 2. Ingest Sample Data
+docker-compose exec backend python -m scripts.ingest_documents --input-dir data/ --init-collections
+
+# 3. Frontend (Dev Mode)
+cd frontend
+npm run dev
+```
+
+### 7.3 Testing
+*   **Unit Tests:** `pytest tests/unit`
+*   **Integration Tests:** `pytest tests/integration`
+*   **Frontend Tests:** `npm test`
+
+---
+
+## 8. Known Constraints
+1.  **Language:** MVP is optimized for **English**. `retriever.py` hardcodes `language="en"` filter.
+2.  **Context Window:** The `ContextCompressor` aggressively trims history to fit ~4000 tokens. Long conversations may lose granular detail from early messages (mitigated by summarization).
+3.  **Deployment:** Docker Compose is configured for **local development**. Production requires HTTPS (Nginx/Traefik) and secrets management.
+
+---
+
+*This document is the authoritative reference for the Singapore SMB Support Agent codebase.*
