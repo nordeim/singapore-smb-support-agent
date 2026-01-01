@@ -165,7 +165,7 @@ graph TB
     C --> N
     C --> O
     O --> N
-    ```
+```
 
 **Note:** WebSocket includes enhanced error handling with exponential backoff (3s * 2^attempt, max 30s) and automatic REST API fallback after 3 consecutive failures.
 
